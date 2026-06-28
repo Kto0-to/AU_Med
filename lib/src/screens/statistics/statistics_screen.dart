@@ -1,0 +1,296 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:intl/intl.dart';
+
+import 'package:au_med/src/providers/statistics_provider.dart';
+import 'package:au_med/src/theme/app_theme.dart';
+import 'package:au_med/src/widgets/med_heatmap.dart';
+
+class StatisticsScreen extends ConsumerWidget {
+  const StatisticsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weeklyAsync = ref.watch(weeklyAdherenceProvider);
+    final monthlyAsync = ref.watch(monthlyAdherenceProvider);
+    final streakAsync = ref.watch(streakDaysProvider);
+    final dailyLogsAsync = ref.watch(dailyLogsProvider);
+
+    final allError = weeklyAsync.hasError ||
+        monthlyAsync.hasError ||
+        streakAsync.hasError ||
+        dailyLogsAsync.hasError;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Статистика')),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(weeklyAdherenceProvider);
+          ref.invalidate(monthlyAdherenceProvider);
+          ref.invalidate(streakDaysProvider);
+          ref.invalidate(dailyLogsProvider);
+        },
+        child: allError
+            ? ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.error_outline,
+                                size: 48, color: Colors.red[300]),
+                            const SizedBox(height: 12),
+                            const Text('Ошибка загрузки данных'),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Потяните вниз для обновления',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _AdherenceCard(
+                          title: 'За неделю',
+                          rate: weeklyAsync.value ?? 0,
+                          color: AppColors.taken,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _AdherenceCard(
+                          title: 'За месяц',
+                          rate: monthlyAsync.value ?? 0,
+                          color: AppColors.taken,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _StreakCard(streak: streakAsync.value ?? 0),
+                  const SizedBox(height: 12),
+                  if (dailyLogsAsync.hasValue)
+                    _HeatmapCard(dailyLogs: dailyLogsAsync.value!)
+                  else
+                    const Card(child: Padding(
+                      padding: EdgeInsets.all(48),
+                      child: Center(child: CircularProgressIndicator()),
+                    )),
+                  const SizedBox(height: 32),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _AdherenceCard extends StatelessWidget {
+  final String title;
+  final double rate;
+  final Color color;
+
+  const _AdherenceCard({
+    required this.title,
+    required this.rate,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Text(title,
+                style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant, fontSize: 13)),
+            const SizedBox(height: 8),
+            Text(
+              '${(rate * 100).toInt()}%',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: rate,
+                backgroundColor: color.withAlpha(25),
+                valueColor: AlwaysStoppedAnimation(color),
+                minHeight: 6,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StreakCard extends StatelessWidget {
+  final int streak;
+  const _StreakCard({required this.streak});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Icon(
+              Icons.local_fire_department,
+              size: 40,
+              color: streak > 0 ? Colors.orange : Colors.grey,
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$streak дн',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: streak > 0 ? Colors.orange : Colors.grey,
+                  ),
+                ),
+                Text(
+                  'Текущая серия',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeatmapCard extends StatelessWidget {
+  final Map<DateTime, List<bool>> dailyLogs;
+  const _HeatmapCard({required this.dailyLogs});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 0);
+    final entries = dailyLogs.entries
+        .where((e) =>
+            !e.key.isBefore(monthStart) && !e.key.isAfter(monthEnd))
+        .map((e) {
+      final list = e.value;
+      final takenCount = list.where((t) => t).length;
+      final totalCount = list.length;
+      int value;
+      if (takenCount == 0) {
+        value = 0;
+      } else if (takenCount < totalCount) {
+        value = 1;
+      } else {
+        value = 2;
+      }
+      return (date: e.key, value: value);
+    }).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Тепловая карта',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 16),
+            Center(child: MedHeatmap(
+              entries: entries,
+              minDate: monthStart,
+              maxDate: monthEnd,
+              cellSpacing: 3,
+              cellRadius: 3,
+              onCellTap: (date, value) {
+                final formatted =
+                    DateFormat('d MMM', 'ru').format(date);
+                String status;
+                if (value == 0) {
+                  status = 'не принято';
+                } else if (value == 1) {
+                  status = 'частично';
+                } else {
+                  status = 'полностью';
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$formatted: $status'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+            )),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _HmLegend(color: Colors.grey.withAlpha(25), label: 'Нет'),
+                const SizedBox(width: 12),
+                _HmLegend(color: Colors.orange.withAlpha(200), label: 'Часть'),
+                const SizedBox(width: 12),
+                _HmLegend(color: Colors.green.withAlpha(200), label: 'Всё'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HmLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _HmLegend({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+      ],
+    );
+  }
+}
