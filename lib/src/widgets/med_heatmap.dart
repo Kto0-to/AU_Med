@@ -70,13 +70,38 @@ class MedHeatmap extends StatelessWidget {
                   padding: EdgeInsets.only(bottom: week < weeks - 1 ? cellSpacing : 0),
                   child: GestureDetector(
                     onTap: onCellTap != null ? () => onCellTap!(date, value) : null,
-                    child: Container(
+                    child: SizedBox(
                       width: cs,
                       height: cs,
-                      decoration: BoxDecoration(
-                        color: _colorForValue(value),
-                        borderRadius: BorderRadius.circular(cellRadius),
-                      ),
+                      child: value == 3
+                          ? Stack(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withAlpha(45),
+                                    borderRadius: BorderRadius.circular(cellRadius),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 0.5,
+                                  top: 0.5,
+                                  child: Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withAlpha(150),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Container(
+                              decoration: BoxDecoration(
+                                color: _colorForValue(value),
+                                borderRadius: BorderRadius.circular(cellRadius),
+                              ),
+                            ),
                     ),
                   ),
                 );
@@ -91,13 +116,14 @@ class MedHeatmap extends StatelessWidget {
   Color _colorForValue(int value) {
     switch (value) {
       case 0:
-        return Colors.grey.withAlpha(25);
+        return Colors.grey.withAlpha(45);
       case 1:
-        return Colors.orange.withAlpha(200);
+        return Colors.orange.withAlpha(100);
       case 2:
-        return Colors.green.withAlpha(200);
+        return Colors.green.withAlpha(100);
       default:
-        return Colors.grey.withAlpha(25);
+        return Colors.grey.withAlpha(45);
     }
   }
+
 }

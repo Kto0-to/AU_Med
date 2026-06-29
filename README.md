@@ -1,17 +1,72 @@
-# au_med
+# 💊 AU MedTraker
 
-A new Flutter project.
+**AU MedTraker** — мобильное приложение для отслеживания приёма лекарств на Android.
 
-## Getting Started
+## ✨ Возможности
 
-This project is a starting point for a Flutter application.
+- 📋 **Расписание на сегодня** — просмотр всех запланированных приёмов, отсортированных по времени
+- 🆘 **Лекарства «По требованию»** — приём PRN-препаратов с возможностью многократного использования и отмены
+- 📊 **Статистика** — приверженность лечению за неделю и месяц, текущая серия дней
+- 🗓️ **Тепловая карта** — визуальный обзор приёмов за месяц
+- 👆 **Навигация свайпами** — листайте дни влево-вправо
+- ➕ **Управление лекарствами** — добавление, редактирование, архивирование, завершение курса
+- 🌗 **Темы оформления** — светлая/тёмная тема, выбор акцентного цвета
+- 📦 **Архив** — просмотр завершённых и архивированных препаратов
 
-A few resources to get you started if this is your first Flutter project:
+## 🗂 Структура проекта
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```
+lib/
+└── src/
+    ├── database/
+    │   ├── daos/          # DAO-слой (работа с БД)
+    │   └── tables/        # Определения таблиц
+    ├── providers/         # Riverpod-провайдеры
+    ├── router/            # GoRouter-маршрутизация
+    ├── screens/
+    │   ├── dosage/        # История дозировок
+    │   ├── logs/          # Редактирование логов
+    │   ├── medications/   # Список и добавление лекарств
+    │   ├── statistics/    # Статистика и тепловая карта
+    │   └── today/         # Главный экран «Сегодня»
+    ├── services/          # Сервисы (уведомления и пр.)
+    ├── shared/            # Общие утилиты
+    ├── theme/             # Тема оформления и цвета
+    └── widgets/           # Переиспользуемые виджеты
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🛠 Технологии
+
+| Технология | Назначение |
+|---|---|
+| **Flutter** 3.12+ (Material 3) | Фреймворк |
+| **Drift** | SQLite ORM |
+| **Riverpod** | Управление состоянием |
+| **GoRouter** | Маршрутизация |
+
+## 🚀 Установка
+
+```bash
+git clone https://github.com/Kto0-to/au-med.git
+cd au-med
+flutter pub get
+flutter run
+```
+
+## 📦 Сборка
+
+```bash
+# APK
+flutter build apk --release
+```
+
+## 🗺 В планах
+
+- ⏰ **Уведомления** — напоминания о приёме лекарств
+- 💊 **Разные дозировки** — запись разного времени и разных доз
+- 📁 **Архив с историей** — возврат archived-препаратов с сохранением истории
+- 🎨 **UI: дизайн без Material**
+
+## 📄 Версия
+
+**1.0.0** — Первый публичный выпуск

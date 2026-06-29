@@ -1,5 +1,5 @@
 name: au_med
-description: "Medication tracker app"
+description: "AU MedTraker — medication tracker app"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -25,6 +25,7 @@ dependencies:
   shadcn_flutter: ^0.0.52
   forui: ^0.23.0
   orient_ui: ^0.7.0
+  icon_plus: ^0.1.1
   day_night_themed_switcher: ^2.0.2
   awesome_snackbar_content: ^0.1.8
   contribution_heatmap: ^0.5.3
@@ -42,6 +43,8 @@ dependencies:
   json_annotation: ^4.9.0
   shared_preferences: ^2.5.5
 
+  flutter_launcher_icons: ^0.14.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -53,3 +56,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+
+flutter_icons:
+  image_path: 'assets/images/icon.png'
+  android: true
+  ios: true

@@ -42,13 +42,23 @@ class StatisticsDao {
 
   Future<Map<DateTime, List<bool>>> getDailyLogs(
       DateTime start, DateTime end) async {
-    final logs = await (_db.select(_db.medicationLogsTable)
-          ..where((t) => t.scheduledTime.isBetweenValues(
-              start.toIso8601String(), end.toIso8601String())))
-        .get();
+    final rows = await (_db.select(_db.medicationLogsTable).join([
+      innerJoin(
+        _db.medicationsTable,
+        _db.medicationsTable.id.equalsExp(_db.medicationLogsTable.medicationId),
+      ),
+    ])
+      ..where(
+        _db.medicationLogsTable.scheduledTime.isBetweenValues(
+            start.toIso8601String(), end.toIso8601String()) &
+        _db.medicationsTable.times.equals('').not(),
+      ))
+      .get();
 
     final result = <DateTime, List<bool>>{};
-    for (final log in logs) {
+    for (final row in rows) {
+      final log = row.readTable(_db.medicationLogsTable);
+      if (log.status == 'scheduled') continue;
       final day = DateTime.parse(log.scheduledTime);
       final dayKey = DateTime(day.year, day.month, day.day);
       result.putIfAbsent(dayKey, () => []);
@@ -76,6 +86,47 @@ class StatisticsDao {
     return map;
   }
 
+  Future<int> prnTakenForPeriod(DateTime start, DateTime end) async {
+    final rows = await (_db.select(_db.medicationLogsTable).join([
+      innerJoin(
+        _db.medicationsTable,
+        _db.medicationsTable.id.equalsExp(_db.medicationLogsTable.medicationId),
+      ),
+    ])
+      ..where(
+        _db.medicationLogsTable.status.equals('taken') &
+        _db.medicationLogsTable.scheduledTime.isBetweenValues(
+            start.toIso8601String(), end.toIso8601String()) &
+        _db.medicationsTable.times.equals(''),
+      ))
+      .get();
+    return rows.length;
+  }
+
+  Future<Set<DateTime>> prnDaysForPeriod(DateTime start, DateTime end) async {
+    final rows = await (_db.select(_db.medicationLogsTable).join([
+      innerJoin(
+        _db.medicationsTable,
+        _db.medicationsTable.id.equalsExp(_db.medicationLogsTable.medicationId),
+      ),
+    ])
+      ..where(
+        _db.medicationLogsTable.status.equals('taken') &
+        _db.medicationLogsTable.scheduledTime.isBetweenValues(
+            start.toIso8601String(), end.toIso8601String()) &
+        _db.medicationsTable.times.equals(''),
+      ))
+      .get();
+
+    final result = <DateTime>{};
+    for (final row in rows) {
+      final log = row.readTable(_db.medicationLogsTable);
+      final day = DateTime.parse(log.scheduledTime);
+      result.add(DateTime(day.year, day.month, day.day));
+    }
+    return result;
+  }
+
   Future<int> streakDays() async {
     final now = DateTime.now();
     int streak = 0;
@@ -96,6 +147,7 @@ class StatisticsDao {
             ))
           .get();
       if (results.isEmpty) continue;
+      if (results.every((r) => r.readTable(_db.medicationLogsTable).status == 'scheduled')) continue;
       if (results.every((r) => r.readTable(_db.medicationLogsTable).status == 'taken')) {
         streak++;
       } else {

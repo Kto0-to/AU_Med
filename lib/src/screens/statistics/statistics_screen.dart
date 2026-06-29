@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:intl/intl.dart';
-
 import 'package:au_med/src/providers/statistics_provider.dart';
 import 'package:au_med/src/theme/app_theme.dart';
 import 'package:au_med/src/widgets/med_heatmap.dart';
@@ -16,11 +14,13 @@ class StatisticsScreen extends ConsumerWidget {
     final monthlyAsync = ref.watch(monthlyAdherenceProvider);
     final streakAsync = ref.watch(streakDaysProvider);
     final dailyLogsAsync = ref.watch(dailyLogsProvider);
+    final prnDaysAsync = ref.watch(prnDaysLast30Provider);
 
     final allError = weeklyAsync.hasError ||
         monthlyAsync.hasError ||
         streakAsync.hasError ||
-        dailyLogsAsync.hasError;
+        dailyLogsAsync.hasError ||
+        prnDaysAsync.hasError;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Статистика')),
@@ -84,7 +84,10 @@ class StatisticsScreen extends ConsumerWidget {
                   _StreakCard(streak: streakAsync.value ?? 0),
                   const SizedBox(height: 12),
                   if (dailyLogsAsync.hasValue)
-                    _HeatmapCard(dailyLogs: dailyLogsAsync.value!)
+                    _HeatmapCard(
+                      dailyLogs: dailyLogsAsync.value!,
+                      prnDays: prnDaysAsync.asData?.value ?? {},
+                    )
                   else
                     const Card(child: Padding(
                       padding: EdgeInsets.all(48),
@@ -193,14 +196,15 @@ class _StreakCard extends StatelessWidget {
 
 class _HeatmapCard extends StatelessWidget {
   final Map<DateTime, List<bool>> dailyLogs;
-  const _HeatmapCard({required this.dailyLogs});
+  final Set<DateTime> prnDays;
+  const _HeatmapCard({required this.dailyLogs, required this.prnDays});
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
     final monthEnd = DateTime(now.year, now.month + 1, 0);
-    final entries = dailyLogs.entries
+    final scheduledEntries = dailyLogs.entries
         .where((e) =>
             !e.key.isBefore(monthStart) && !e.key.isAfter(monthEnd))
         .map((e) {
@@ -218,6 +222,14 @@ class _HeatmapCard extends StatelessWidget {
       return (date: e.key, value: value);
     }).toList();
 
+    final scheduledKeys = scheduledEntries.map((e) => e.date).toSet();
+    final prnOnly = prnDays.where((d) =>
+        !d.isBefore(monthStart) && !d.isAfter(monthEnd) && !scheduledKeys.contains(d));
+    final entries = [
+      ...scheduledEntries,
+      for (final d in prnOnly) (date: d, value: 3),
+    ];
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -234,20 +246,23 @@ class _HeatmapCard extends StatelessWidget {
               cellSpacing: 3,
               cellRadius: 3,
               onCellTap: (date, value) {
-                final formatted =
-                    DateFormat('d MMM', 'ru').format(date);
+                final formatted = '${date.day}.${date.month}';
                 String status;
                 if (value == 0) {
                   status = 'не принято';
                 } else if (value == 1) {
                   status = 'частично';
+                } else if (value == 3) {
+                  status = 'по требованию';
                 } else {
                   status = 'полностью';
                 }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('$formatted: $status'),
+                    content: Text('$formatted — $status'),
                     duration: const Duration(seconds: 1),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
                   ),
                 );
               },
@@ -261,11 +276,52 @@ class _HeatmapCard extends StatelessWidget {
                 _HmLegend(color: Colors.orange.withAlpha(200), label: 'Часть'),
                 const SizedBox(width: 12),
                 _HmLegend(color: Colors.green.withAlpha(200), label: 'Всё'),
+                const SizedBox(width: 12),
+                _HmPrnLegend(),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HmPrnLegend extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 10,
+          height: 10,
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.withAlpha(45),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Positioned(
+                right: 0.5,
+                top: 0.5,
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.green.withAlpha(150),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text('PRN', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+      ],
     );
   }
 }

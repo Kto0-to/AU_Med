@@ -13,6 +13,7 @@ import 'package:au_med/src/providers/logs_provider.dart';
 import 'package:au_med/src/providers/statistics_provider.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/theme/app_theme.dart';
+import 'package:au_med/src/services/notification_service.dart';
 
 bool _timeMatches(String scheduledTime, String timeString) {
   return scheduledTime.contains(timeString);
@@ -69,7 +70,12 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             .firstOrNull;
         return (medication: med, time: time, log: log);
       });
-    }).toList();
+    }).toList()
+      ..sort((a, b) {
+        final aTime = a.time ?? '';
+        final bTime = b.time ?? '';
+        return aTime.compareTo(bTime);
+      });
   }
 
   @override
@@ -78,6 +84,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     final logsAsync = ref.watch(logsForDateProvider(_normalizedDate));
     final streakAsync = ref.watch(streakDaysProvider);
     final dailyLogsAsync = ref.watch(dailyLogsProvider);
+    final prnDaysAsync = ref.watch(prnDaysLast30Provider);
 
     final dateKey = _normalizedDate.toIso8601String().substring(0, 10);
     if (_autoMarkKey != dateKey) {
@@ -115,7 +122,15 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          if (details.primaryVelocity! < 0) {
+            setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)));
+          } else if (details.primaryVelocity! > 0) {
+            setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)));
+          }
+        },
+        child: RefreshIndicator(
         onRefresh: () async => ref.invalidate(activeMedicationsProvider),
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -171,36 +186,39 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                   }
                   int prnTaken = 0;
                   for (final med in prn) {
-                    final log = logs.where((l) => l.medicationId == med.id).firstOrNull;
-                    if (log?.status == 'taken') prnTaken++;
+                    prnTaken += logs.where((l) => l.medicationId == med.id && l.status == 'taken').length;
                   }
-                  final total = slots.length + prn.length;
-                  final totalTaken = taken + prnTaken;
+                  final total = slots.length;
                   return _ProgressSummary(
-                    taken: totalTaken,
+                    taken: taken,
                     skipped: skipped,
                     missed: missed,
                     pending: pending,
                     total: total,
+                    prnTaken: prnTaken,
                     date: _normalizedDate,
                     streak: streakAsync.value ?? 0,
                   );
                 },
                 loading: () => _ProgressSummary(
                   taken: 0, skipped: 0, missed: 0, pending: 0, total: 0,
+                  prnTaken: 0,
                   date: _normalizedDate, streak: streakAsync.value ?? 0,
                 ),
                 error: (_, _) => _ProgressSummary(
                   taken: 0, skipped: 0, missed: 0, pending: 0, total: 0,
+                  prnTaken: 0,
                   date: _normalizedDate, streak: streakAsync.value ?? 0,
                 ),
               ),
               loading: () => _ProgressSummary(
                 taken: 0, skipped: 0, missed: 0, pending: 0, total: 0,
+                prnTaken: 0,
                 date: _normalizedDate, streak: streakAsync.value ?? 0,
               ),
               error: (_, _) => _ProgressSummary(
                 taken: 0, skipped: 0, missed: 0, pending: 0, total: 0,
+                prnTaken: 0,
                 date: _normalizedDate, streak: streakAsync.value ?? 0,
               ),
             ),
@@ -209,6 +227,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               data: (dailyLogs) => _WeekCalendar(
                 selectedDate: _normalizedDate,
                 dailyLogs: dailyLogs,
+                prnOnlyDays: prnDaysAsync.asData?.value ?? {},
                 onSelectDate: (date) =>
                     setState(() => _selectedDate = date),
               ),
@@ -233,41 +252,42 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                           slots: slots,
                           isToday: _isToday,
                           selectedDate: _normalizedDate,
-                          onMarkTaken: (medicationId, time) async {
-                            final dao = ref.read(logsDaoProvider);
-                            final now = DateTime.now();
-                            final existingLogs = await dao.getForMedicationOnDate(
-                                medicationId, _normalizedDate);
-                            final log = existingLogs.where((l) =>
-                                time == null || _timeMatches(l.scheduledTime, time)).firstOrNull;
-                            if (log != null) {
-                              if (log.status == 'taken') {
-                                await dao.updateLog(log.id, MedicationLogsTableCompanion(
-                                  status: const Value('scheduled'),
-                                  takenTime: const Value(null),
-                                ));
-                              } else {
-                                await dao.markTaken(log.id, now);
-                              }
-                            } else {
-                              final scheduledTime = time != null
-                                  ? '${_normalizedDate.toIso8601String().split('T').first}T$time:00'
-                                  : now.toIso8601String();
-                              await dao.insert(MedicationLogsTableCompanion(
-                                medicationId: Value(medicationId),
-                                scheduledTime: Value(scheduledTime),
-                                status: const Value('taken'),
-                                takenTime: Value(now.toIso8601String()),
-                                createdAt: Value(now.toIso8601String()),
-                              ));
-                            }
-                            ref.invalidate(logsForDateProvider(_normalizedDate));
-                            ref.invalidate(streakDaysProvider);
-                            ref.invalidate(dailyLogsProvider);
-                            ref.invalidate(weeklyAdherenceProvider);
-                            ref.invalidate(monthlyAdherenceProvider);
-                            ref.invalidate(statusDistributionProvider);
-                          },
+                           onMarkTaken: (medicationId, time) async {
+                             final dao = ref.read(logsDaoProvider);
+                             final now = DateTime.now();
+                             final existingLogs = await dao.getForMedicationOnDate(
+                                 medicationId, _normalizedDate);
+                             final log = existingLogs.where((l) =>
+                                 time == null || _timeMatches(l.scheduledTime, time)).firstOrNull;
+                             if (log != null) {
+                               if (log.status == 'taken') {
+                                 await dao.updateLog(log.id, MedicationLogsTableCompanion(
+                                   status: const Value('scheduled'),
+                                   takenTime: const Value(null),
+                                 ));
+                               } else {
+                                 await dao.markTaken(log.id, now);
+                               }
+                             } else {
+                               final scheduledTime = time != null
+                                   ? '${_normalizedDate.toIso8601String().split('T').first}T$time:00'
+                                   : now.toIso8601String();
+                               await dao.insert(MedicationLogsTableCompanion(
+                                 medicationId: Value(medicationId),
+                                 scheduledTime: Value(scheduledTime),
+                                 status: const Value('taken'),
+                                 takenTime: Value(now.toIso8601String()),
+                                 createdAt: Value(now.toIso8601String()),
+                               ));
+                             }
+                             await NotificationService().cancelMedicationReminders(medicationId);
+                             ref.invalidate(logsForDateProvider(_normalizedDate));
+                             ref.invalidate(streakDaysProvider);
+                             ref.invalidate(dailyLogsProvider);
+                             ref.invalidate(weeklyAdherenceProvider);
+                             ref.invalidate(monthlyAdherenceProvider);
+                             ref.invalidate(statusDistributionProvider);
+                           },
                           onEdit: (medication) =>
                               context.push('/medications/${medication.id}/edit'),
                           onDelete: (medication) async {
@@ -302,6 +322,22 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                             logs: logs,
                             isToday: _isToday,
                             selectedDate: _normalizedDate,
+                            onCancelTake: (medicationId) async {
+                              final dao = ref.read(logsDaoProvider);
+                              final logs = await dao.getForMedicationOnDate(medicationId, _normalizedDate);
+                              final takenLogs = logs.where((l) => l.status == 'taken').toList()
+                                ..sort((a, b) => b.scheduledTime.compareTo(a.scheduledTime));
+                              if (takenLogs.isNotEmpty) {
+                                await dao.deleteLog(takenLogs.first.id);
+                              }
+                              ref.invalidate(logsForDateProvider(_normalizedDate));
+                              ref.invalidate(streakDaysProvider);
+                              ref.invalidate(dailyLogsProvider);
+                              ref.invalidate(weeklyAdherenceProvider);
+                              ref.invalidate(monthlyAdherenceProvider);
+                              ref.invalidate(statusDistributionProvider);
+                              ref.invalidate(todayPrnTakenProvider);
+                            },
                             onEdit: (medication) =>
                                 context.push('/medications/${medication.id}/edit'),
                             onDelete: (medication) async {
@@ -331,25 +367,25 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                             onMarkTaken: (medicationId) async {
                               final dao = ref.read(logsDaoProvider);
                               final now = DateTime.now();
-                              final existingLogs = await dao.getForMedicationOnDate(medicationId, _normalizedDate);
-                              final log = existingLogs.where((l) => l.status == 'taken').firstOrNull;
-                              if (log != null) {
-                                await dao.deleteLog(log.id);
-                              } else {
-                                await dao.insert(MedicationLogsTableCompanion(
-                                  medicationId: Value(medicationId),
-                                  scheduledTime: Value(now.toIso8601String()),
-                                  status: const Value('taken'),
-                                  takenTime: Value(now.toIso8601String()),
-                                  createdAt: Value(now.toIso8601String()),
-                                ));
-                              }
+                              final scheduledTime = DateTime(
+                                _normalizedDate.year, _normalizedDate.month, _normalizedDate.day,
+                                now.hour, now.minute, now.second,
+                              );
+                              await dao.insert(MedicationLogsTableCompanion(
+                                medicationId: Value(medicationId),
+                                scheduledTime: Value(scheduledTime.toIso8601String()),
+                                status: const Value('taken'),
+                                takenTime: Value(now.toIso8601String()),
+                                createdAt: Value(now.toIso8601String()),
+                              ));
+                              await NotificationService().cancelMedicationReminders(medicationId);
                               ref.invalidate(logsForDateProvider(_normalizedDate));
                               ref.invalidate(streakDaysProvider);
                               ref.invalidate(dailyLogsProvider);
                               ref.invalidate(weeklyAdherenceProvider);
                               ref.invalidate(monthlyAdherenceProvider);
                               ref.invalidate(statusDistributionProvider);
+                              ref.invalidate(todayPrnTakenProvider);
                             },
                           ),
                         ],
@@ -365,6 +401,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -424,11 +461,13 @@ class _DateNavigation extends StatelessWidget {
 class _WeekCalendar extends StatelessWidget {
   final DateTime selectedDate;
   final Map<DateTime, List<bool>> dailyLogs;
+  final Set<DateTime> prnOnlyDays;
   final ValueChanged<DateTime> onSelectDate;
 
   const _WeekCalendar({
     required this.selectedDate,
     required this.dailyLogs,
+    required this.prnOnlyDays,
     required this.onSelectDate,
   });
 
@@ -469,6 +508,9 @@ class _WeekCalendar extends StatelessWidget {
               } else {
                 indicatorColor = Colors.transparent;
               }
+            } else if (prnOnlyDays.contains(day)) {
+              indicatorColor = Colors.green.withAlpha(180);
+              hasColor = true;
             } else {
               indicatorColor = Colors.transparent;
             }
@@ -607,6 +649,7 @@ class _ProgressSummary extends StatelessWidget {
   final int missed;
   final int pending;
   final int total;
+  final int prnTaken;
   final DateTime date;
   final int streak;
 
@@ -616,6 +659,7 @@ class _ProgressSummary extends StatelessWidget {
     required this.missed,
     required this.pending,
     required this.total,
+    required this.prnTaken,
     required this.date,
     required this.streak,
   });
@@ -654,6 +698,22 @@ class _ProgressSummary extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
+                  if (prnTaken > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle, size: 14, color: theme.colorScheme.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'По требованию: $prnTaken',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -672,7 +732,7 @@ class _ProgressSummary extends StatelessWidget {
                     total > 0 ? '${(taken * 100 ~/ total)}%' : '0%',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: AppColors.taken,
+                      color: total == 0 ? Colors.grey : AppColors.taken,
                       fontSize: 13,
                     ),
                   ),
@@ -836,6 +896,7 @@ class _PrnSection extends StatelessWidget {
   final bool isToday;
   final DateTime selectedDate;
   final Function(int medicationId) onMarkTaken;
+  final Function(int medicationId) onCancelTake;
   final Function(MedicationsTableData medication) onEdit;
   final Function(MedicationsTableData medication) onDelete;
   final Function(MedicationsTableData medication) onArchive;
@@ -848,6 +909,7 @@ class _PrnSection extends StatelessWidget {
     required this.isToday,
     required this.selectedDate,
     required this.onMarkTaken,
+    required this.onCancelTake,
     required this.onEdit,
     required this.onDelete,
     required this.onArchive,
@@ -869,8 +931,8 @@ class _PrnSection extends StatelessWidget {
           ),
         ),
         ...prn.map((med) {
-          final log = logs.where((l) => l.medicationId == med.id).firstOrNull;
-          final isTaken = log?.status == 'taken';
+          final medLogs = logs.where((l) => l.medicationId == med.id).toList();
+          final takenCount = medLogs.where((l) => l.status == 'taken').length;
           return Card(
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -878,10 +940,14 @@ class _PrnSection extends StatelessWidget {
                 context: context,
                 builder: (ctx) => _MedicationDetailDialog(
                   medication: med,
-                  isTaken: isTaken,
+                  isTaken: takenCount > 0,
                   onTake: () {
                     Navigator.pop(ctx);
                     onMarkTaken(med.id);
+                  },
+                  onCancelTake: () {
+                    Navigator.pop(ctx);
+                    onCancelTake(med.id);
                   },
                   onEdit: () {
                     Navigator.pop(ctx);
@@ -929,12 +995,16 @@ class _PrnSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (isTaken)
-                      Icon(Icons.check_circle, color: theme.colorScheme.primary)
-                    else
-                      ElevatedButton(
-                        onPressed: () => onMarkTaken(med.id),
-                        child: const Text('Принять'),
+                    if (takenCount > 0)
+                      Chip(
+                        avatar: Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
+                        label: Text(takenCount > 1 ? 'Принято x$takenCount' : 'Принято', style: const TextStyle(fontSize: 12)),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: EdgeInsets.zero,
+                        labelPadding: const EdgeInsets.only(right: 4),
+                        backgroundColor: theme.colorScheme.primary.withAlpha(25),
+                        side: BorderSide.none,
                       ),
                   ],
                 ),
@@ -1110,6 +1180,7 @@ class _MedicationDetailDialog extends StatefulWidget {
   final String? time;
   final bool isTaken;
   final VoidCallback onTake;
+  final VoidCallback? onCancelTake;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onArchive;
@@ -1121,6 +1192,7 @@ class _MedicationDetailDialog extends StatefulWidget {
     this.time,
     required this.isTaken,
     required this.onTake,
+    this.onCancelTake,
     required this.onEdit,
     required this.onDelete,
     required this.onArchive,
@@ -1245,21 +1317,32 @@ class _MedicationDetailDialogState extends State<_MedicationDetailDialog> {
           const SizedBox(height: 12),
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.access_time, size: 20),
-                onPressed: widget.onEdit,
-                tooltip: 'Изменить время',
-              ),
+              if (widget.time != null)
+                IconButton(
+                  icon: const Icon(Icons.access_time, size: 20),
+                  onPressed: widget.onEdit,
+                  tooltip: 'Изменить время',
+                ),
               const Spacer(),
+              if (widget.time == null && widget.onCancelTake != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: OutlinedButton(
+                    onPressed: widget.onCancelTake,
+                    child: const Text('Отменить'),
+                  ),
+                ),
               FilledButton.tonalIcon(
                 onPressed: () {
-                  setState(() => _isTaken = !_isTaken);
+                  if (widget.time != null) {
+                    setState(() => _isTaken = !_isTaken);
+                  }
                   widget.onTake();
                 },
-                icon: _isTaken
+                icon: _isTaken && widget.time != null
                     ? const Icon(Icons.check_circle, size: 20)
                     : const Icon(Icons.check_circle_outline, size: 20),
-                label: Text(_isTaken ? 'Принято' : 'Принять'),
+                label: Text(_isTaken && widget.time != null ? 'Принято' : 'Принять'),
               ),
             ],
           ),

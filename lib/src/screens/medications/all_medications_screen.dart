@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
+import 'package:au_med/src/providers/logs_provider.dart';
+import 'package:au_med/src/providers/statistics_provider.dart';
 import 'package:au_med/src/theme/app_theme.dart';
 import 'package:au_med/src/services/notification_service.dart';
 
@@ -102,35 +104,36 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
                       medication: med,
                       onTap: () => showDialog(
                         context: context,
-                        builder: (_) => _MedicationDetailDialog(
+                        builder: (ctx) => _MedicationDetailDialog(
                           medication: med,
+                          onTake: () => _takeMedication(med),
                           onEdit: () {
-                            Navigator.pop(context);
+                            Navigator.pop(ctx);
                             context.push('/medications/${med.id}/edit');
                           },
                           onDelete: () async {
-                            Navigator.pop(context);
+                            Navigator.pop(ctx);
                             final dao = ref.read(medicationsDaoProvider);
                             await dao.deleteMedication(med.id);
                             ref.invalidate(allMedicationsProvider);
                             ref.invalidate(activeMedicationsProvider);
                           },
                           onArchive: () async {
-                            Navigator.pop(context);
+                            Navigator.pop(ctx);
                             final dao = ref.read(medicationsDaoProvider);
                             await dao.archive(med.id);
                             ref.invalidate(allMedicationsProvider);
                             ref.invalidate(activeMedicationsProvider);
                           },
                           onComplete: () async {
-                            Navigator.pop(context);
+                            Navigator.pop(ctx);
                             final dao = ref.read(medicationsDaoProvider);
                             await dao.markCompleted(med.id);
                             ref.invalidate(allMedicationsProvider);
                             ref.invalidate(activeMedicationsProvider);
                           },
                           onRestore: () async {
-                            Navigator.pop(context);
+                            Navigator.pop(ctx);
                             final dao = ref.read(medicationsDaoProvider);
                             await dao.uncomplete(med.id);
                             ref.invalidate(allMedicationsProvider);
@@ -179,6 +182,13 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
     await NotificationService().cancelMedicationReminders(medication.id);
     ref.invalidate(allMedicationsProvider);
     ref.invalidate(activeMedicationsProvider);
+    ref.invalidate(logsForDateProvider(today));
+    ref.invalidate(todayPrnTakenProvider);
+    ref.invalidate(streakDaysProvider);
+    ref.invalidate(dailyLogsProvider);
+    ref.invalidate(weeklyAdherenceProvider);
+    ref.invalidate(monthlyAdherenceProvider);
+    ref.invalidate(statusDistributionProvider);
   }
 
   Future<void> _archiveMedication(int id) async {
@@ -297,19 +307,7 @@ class _MedicationListCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (medication.times.isEmpty)
-                SizedBox(
-                  height: 32,
-                  child: OutlinedButton.icon(
-                    onPressed: onTake,
-                    icon: const Icon(Icons.check, size: 16),
-                    label: const Text('Принять', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ),
+
             ],
           ),
         ),
@@ -320,6 +318,7 @@ class _MedicationListCard extends StatelessWidget {
 
 class _MedicationDetailDialog extends StatelessWidget {
   final MedicationsTableData medication;
+  final VoidCallback? onTake;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onArchive;
@@ -328,6 +327,7 @@ class _MedicationDetailDialog extends StatelessWidget {
 
   const _MedicationDetailDialog({
     required this.medication,
+    this.onTake,
     required this.onEdit,
     required this.onDelete,
     required this.onArchive,
@@ -441,34 +441,44 @@ class _MedicationDetailDialog extends StatelessWidget {
               ],
             ),
           ],
+          if (medication.times.isEmpty && onTake != null) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: FilledButton.icon(
+                onPressed: onTake,
+                icon: const Icon(Icons.check_circle_outline, size: 20),
+                label: const Text('Принять'),
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _ActionButton(
+              _DialogIconButton(
                 icon: Icons.edit_outlined,
-                label: 'Изменить',
+                tooltip: 'Изменить',
                 onTap: onEdit,
               ),
-              _ActionButton(
+              _DialogIconButton(
                 icon: Icons.archive_outlined,
-                label: 'Архив',
+                tooltip: 'Архив',
                 onTap: onArchive,
               ),
               medication.isCompleted
-                  ? _ActionButton(
+                  ? _DialogIconButton(
                       icon: Icons.restart_alt,
-                      label: 'Возобновить',
+                      tooltip: 'Возобновить',
                       onTap: onRestore,
                     )
-                  : _ActionButton(
+                  : _DialogIconButton(
                       icon: Icons.check_circle_outline,
-                      label: 'Завершить',
+                      tooltip: 'Завершить',
                       onTap: onComplete,
                     ),
-              _ActionButton(
+              _DialogIconButton(
                 icon: Icons.delete_outline,
-                label: 'Удалить',
+                tooltip: 'Удалить',
                 onTap: onDelete,
                 color: Colors.red,
               ),
@@ -481,15 +491,15 @@ class _MedicationDetailDialog extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatelessWidget {
+class _DialogIconButton extends StatelessWidget {
   final IconData icon;
-  final String label;
+  final String tooltip;
   final VoidCallback onTap;
   final Color? color;
 
-  const _ActionButton({
+  const _DialogIconButton({
     required this.icon,
-    required this.label,
+    required this.tooltip,
     required this.onTap,
     this.color,
   });
@@ -497,31 +507,20 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final btnColor = color ?? theme.colorScheme.primary;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: btnColor.withAlpha(20),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: btnColor, size: 22),
+    final btnColor = color ?? theme.colorScheme.onSurfaceVariant;
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: btnColor.withAlpha(15),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+          child: Icon(icon, color: btnColor, size: 22),
+        ),
       ),
     );
   }

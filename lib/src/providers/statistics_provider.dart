@@ -29,6 +29,19 @@ final dailyLogsProvider = FutureProvider<Map<DateTime, List<bool>>>((ref) {
   return ref.read(statisticsDaoProvider).getDailyLogs(monthAgo, now);
 });
 
+final todayPrnTakenProvider = FutureProvider<int>((ref) {
+  final now = DateTime.now();
+  final dayStart = DateTime(now.year, now.month, now.day);
+  final dayEnd = dayStart.add(const Duration(days: 1));
+  return ref.read(statisticsDaoProvider).prnTakenForPeriod(dayStart, dayEnd);
+});
+
+final prnDaysLast30Provider = FutureProvider<Set<DateTime>>((ref) {
+  final now = DateTime.now();
+  final monthAgo = now.subtract(const Duration(days: 30));
+  return ref.read(statisticsDaoProvider).prnDaysForPeriod(monthAgo, now);
+});
+
 final todayTakenCountProvider = FutureProvider<int>((ref) {
   final now = DateTime.now();
   final dayStart = DateTime(now.year, now.month, now.day);

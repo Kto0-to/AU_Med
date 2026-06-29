@@ -15,7 +15,7 @@ class AuMedApp extends ConsumerWidget {
     final accentColor = AccentColorNotifier.colors[accentIndex];
 
     return MaterialApp.router(
-      title: 'MedTracker',
+      title: 'AU MedTracker',
       debugShowCheckedModeBanner: false,
       locale: const Locale('ru'),
       supportedLocales: const [
@@ -44,7 +44,7 @@ class AuMedApp extends ConsumerWidget {
         onPrimary: Colors.white,
         secondary: const Color(0xFFF1F5F9),
         onSecondary: const Color(0xFF1E293B),
-        surface: const Color(0xFFF8FAFC),
+        surface: const Color(0xFFF8FAFC), //цвет нижней навигации
         onSurface: const Color(0xFF0F172A),
         error: const Color(0xFFEF4444),
         onError: Colors.white,
@@ -56,11 +56,11 @@ class AuMedApp extends ConsumerWidget {
       scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       cardTheme: CardThemeData(
         color: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        surfaceTintColor: const Color.fromARGB(21, 223, 223, 223),
+        elevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: const Color(0xFFE2E8F0), width: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: const Color.fromARGB(192, 226, 232, 240), width: 0.9),
         ),
       ),
       appBarTheme: AppBarTheme(
@@ -76,18 +76,17 @@ class AuMedApp extends ConsumerWidget {
         filled: true,
         fillColor: const Color(0xFFE2E8F0),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: const Color(0xFFE2E8F0)),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: const Color(0xFFE2E8F0)),
+        enabledBorder: OutlineInputBorder( //поисковая строка-рамка
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide(color: const Color.fromARGB(255, 211, 212, 214)),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: accent,
-        foregroundColor: Colors.white,
-      ),
+        foregroundColor: const Color.fromARGB(255, 245, 245, 245)      ),
     );
   }
 
@@ -113,11 +112,11 @@ class AuMedApp extends ConsumerWidget {
       scaffoldBackgroundColor: const Color(0xFF1A1A1A),
       cardTheme: CardThemeData(
         color: const Color(0xFF2D2D2D),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        surfaceTintColor: const Color.fromARGB(11, 0, 0, 0),
+        elevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: const Color(0xFF404040), width: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: const Color.fromARGB(255, 43, 43, 43), width: 0.9),
         ),
       ),
       appBarTheme: AppBarTheme(
@@ -133,17 +132,17 @@ class AuMedApp extends ConsumerWidget {
         filled: true,
         fillColor: const Color(0xFF2D2D2D),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: const Color(0xFF404040)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: const Color.fromARGB(255, 70, 70, 70)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: const Color(0xFF404040)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: const Color.fromARGB(255, 68, 68, 68)),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: Color.lerp(accent, Colors.white, 0.3)!,
-        foregroundColor: Colors.white,
+        foregroundColor: const Color.fromARGB(255, 231, 231, 231),
       ),
     );
   }
