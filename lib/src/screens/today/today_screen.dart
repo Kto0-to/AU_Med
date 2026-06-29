@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:icon_plus/icon_plus.dart';
+import 'package:forui/forui.dart';
 
 import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
@@ -40,12 +41,31 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   }
 
   Future<void> _pickDate() async {
-    final date = await showDatePicker(
+    final controller = FDateSelectionController.single();
+    controller.value = _normalizedDate;
+
+    final date = await showDialog<DateTime>(
       context: context,
-      initialDate: _normalizedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      builder: (ctx) => AlertDialog(
+        contentPadding: EdgeInsets.zero,
+        content: FTheme(
+          data: (Theme.of(ctx).brightness == Brightness.dark
+              ? FThemes.zinc.dark
+              : FThemes.zinc.light
+          ).desktop,
+          child: SizedBox(
+            width: 320,
+            child: FCalendar.grid(
+              selectionControl: FDateSelectionControl.managedSingle(
+                controller: controller,
+              ),
+              onDayPress: (d) => Navigator.pop(ctx, d),
+            ),
+          ),
+        ),
+      ),
     );
+    controller.dispose();
     if (date != null) {
       setState(() => _selectedDate = date);
     }
@@ -85,7 +105,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               .split(',')
               .where((t) => t.isNotEmpty)
               .toList();
-          if (times.isEmpty)
+          if (times.isEmpty) {
             return <
               ({
                 MedicationsTableData medication,
@@ -93,6 +113,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 MedicationLogsTableData? log,
               })
             >[];
+          }
           return times.map((time) {
             final log = logs
                 .where(
@@ -833,7 +854,7 @@ class _ProgressSummary extends StatelessWidget {
         DateTime(date.year, date.month, date.day) ==
         DateTime(now.year, now.month, now.day);
 
-    String _dayLabel(int n) {
+    String dayLabel(int n) {
       if (n % 10 == 1 && n % 100 != 11) return 'день';
       if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'дня';
       return 'дней';
@@ -935,7 +956,7 @@ class _ProgressSummary extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  _dayLabel(streak),
+                  dayLabel(streak),
                   style: TextStyle(
                     fontSize: 12,
                     color: theme.colorScheme.onSurfaceVariant,

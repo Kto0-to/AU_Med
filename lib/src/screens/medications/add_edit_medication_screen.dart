@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:icon_plus/icon_plus.dart';
+import 'package:forui/forui.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
@@ -28,29 +28,33 @@ class AddEditMedicationScreen extends ConsumerStatefulWidget {
 class _AddEditMedicationScreenState
     extends ConsumerState<AddEditMedicationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _dosageValueController = TextEditingController();
-  final _notesController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _remainingPillsController = TextEditingController();
+
+  String _name = '';
+  String _description = '';
+  double _dosageValue = 0;
+  String _notes = '';
+  int? _remainingPills;
+
+  late final FDateSelectionController<DateTime?> _startDateController;
+  late final FDateSelectionController<DateTime?> _endDateController;
+  late final FTimePickerController _timePickerController;
 
   String _dosageUnit = 'мг';
   int _frequencyPerDay = 1;
-  double? _intervalHours;
   List<String> _times = [];
   int _selectedColor = AppColors.medicationColors[0];
   String? _selectedIcon;
   bool _isLoading = false;
   bool _isEditing = false;
-  bool _useInterval = false;
-  DateTime? _startDate;
-  DateTime? _endDate;
 
   static const _units = ['мг', 'мл', 'таб', 'капс', 'капли', 'мкг', 'г', 'ед'];
 
   @override
   void initState() {
     super.initState();
+    _startDateController = FDateSelectionController.single(toggleable: true);
+    _endDateController = FDateSelectionController.single(toggleable: true);
+    _timePickerController = FTimePickerController();
     if (widget.medicationId != null) {
       _isEditing = true;
       _loadMedication();
@@ -62,47 +66,70 @@ class _AddEditMedicationScreenState
     final dao = ref.read(medicationsDaoProvider);
     final med = await dao.getById(widget.medicationId!);
     if (med != null && mounted) {
-      _nameController.text = med.name;
-      _dosageValueController.text = med.dosageValue.toString();
+      _name = med.name;
+      _dosageValue = med.dosageValue;
       _dosageUnit = med.dosageUnit;
       _frequencyPerDay = med.frequencyPerDay ?? 1;
-      _intervalHours = med.intervalHours;
-      _useInterval = med.intervalHours != null;
       if (med.times.isNotEmpty) {
         _times = med.times.split(',').where((t) => t.isNotEmpty).toList();
       }
       _selectedColor = med.color;
       _selectedIcon = med.icon;
-      _notesController.text = med.notes ?? '';
-      _descriptionController.text = med.description ?? '';
-      _startDate = DateTime.tryParse(med.startDate);
-      if (med.endDate != null) _endDate = DateTime.tryParse(med.endDate!);
-      if (med.remainingPills != null) {
-        _remainingPillsController.text = med.remainingPills.toString();
+      _notes = med.notes ?? '';
+      _description = med.description ?? '';
+      final parsedStart = DateTime.tryParse(med.startDate);
+      if (parsedStart != null) _startDateController.value = parsedStart;
+      if (med.endDate != null) {
+        final parsedEnd = DateTime.tryParse(med.endDate!);
+        if (parsedEnd != null) _endDateController.value = parsedEnd;
       }
+      _remainingPills = med.remainingPills;
     }
     setState(() => _isLoading = false);
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _dosageValueController.dispose();
-    _notesController.dispose();
-    _descriptionController.dispose();
-    _remainingPillsController.dispose();
+    _startDateController.dispose();
+    _endDateController.dispose();
+    _timePickerController.dispose();
     super.dispose();
   }
 
-  void _addTime() async {
-    final result = await showTimePicker(
+  Future<void> _addTime() async {
+    final controller = FTimePickerController();
+    final time = await showDialog<FTime>(
       context: context,
-      initialTime: TimeOfDay.now(),
+      builder: (ctx) => AlertDialog(
+        content: SizedBox(
+          height: 250,
+          child: FTheme(
+            data: (Theme.of(ctx).brightness == Brightness.dark
+                ? FThemes.zinc.dark
+                : FThemes.zinc.light
+            ).desktop,
+            child: FTimePicker(
+              control: FTimePickerControl.managed(controller: controller),
+              hour24: true,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          FButton(
+            onPress: () => Navigator.pop(ctx, controller.value),
+            child: const Text('Добавить'),
+          ),
+        ],
+      ),
     );
-    if (result != null) {
+    controller.dispose();
+    if (time != null) {
       setState(() {
-        final formatted = '${result.hour.toString().padLeft(2, '0')}:${result.minute.toString().padLeft(2, '0')}';
-        _times.add(formatted);
+        _times.add('${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}');
         _times.sort();
       });
     }
@@ -114,31 +141,30 @@ class _AddEditMedicationScreenState
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState!.save();
     setState(() => _isLoading = true);
     try {
       final dao = ref.read(medicationsDaoProvider);
       final now = DateTime.now().toIso8601String();
 
       final companion = MedicationsTableCompanion(
-        name: Value(_nameController.text.trim()),
-        description: Value(_descriptionController.text.trim().isEmpty
+        name: Value(_name.trim()),
+        description: Value(_description.trim().isEmpty
             ? null
-            : _descriptionController.text.trim()),
-        dosageValue: Value(double.parse(_dosageValueController.text.trim())),
+            : _description.trim()),
+        dosageValue: Value(_dosageValue),
         dosageUnit: Value(_dosageUnit),
-        frequencyPerDay: Value(_useInterval ? null : _frequencyPerDay),
-        intervalHours: Value(_useInterval ? _intervalHours : null),
+        frequencyPerDay: Value(_frequencyPerDay),
+        intervalHours: const Value(null),
         times: Value(_times.isEmpty ? '' : _times.join(',')),
         color: Value(_selectedColor),
         icon: Value(_selectedIcon),
         isArchived: const Value(false),
         isCompleted: const Value(false),
-        notes: Value(_notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim()),
-        startDate: Value(_startDate?.toIso8601String() ?? ''),
-        endDate: Value(_endDate?.toIso8601String()),
-        remainingPills: Value(int.tryParse(_remainingPillsController.text.trim())),
+        notes: Value(_notes.trim().isEmpty ? null : _notes.trim()),
+        startDate: Value(_startDateController.value?.toIso8601String() ?? ''),
+        endDate: Value(_endDateController.value?.toIso8601String()),
+        remainingPills: Value(_remainingPills),
         createdAt: Value(_isEditing
             ? (await dao.getById(widget.medicationId!))?.createdAt ?? now
             : now),
@@ -161,8 +187,8 @@ class _AddEditMedicationScreenState
         }).toList();
         await NotificationService().scheduleMedicationReminder(
           medicationId: medId,
-          medicationName: _nameController.text.trim(),
-          dosage: '${_dosageValueController.text.trim()} $_dosageUnit',
+          medicationName: _name.trim(),
+          dosage: '$_dosageValue $_dosageUnit',
           times: times,
         );
       }
@@ -207,398 +233,364 @@ class _AddEditMedicationScreenState
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEditing ? 'Редактировать лекарство' : 'Добавить лекарство'),
-        actions: [
-          ElevatedButton(
-            onPressed: _isLoading ? null : _save,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Сохранить'),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: _isLoading && _isEditing
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Основная информация',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Название',
-                                hintText: 'напр. Аспирин',
-                              ),
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty ? 'Обязательно' : null,
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _descriptionController,
-                              decoration: const InputDecoration(
-                                labelText: 'Описание',
-                                hintText: 'Необязательно...',
-                              ),
-                              minLines: 1,
-                              maxLines: 3,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Дозировка',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _dosageValueController,
-                              decoration: const InputDecoration(
-                                labelText: 'Значение',
-                                hintText: '0.5',
-                              ),
-                              keyboardType: TextInputType.number,
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) {
-                                  return 'Обязательно';
-                                }
-                                if (double.tryParse(v.trim()) == null) {
-                                  return 'Неверное число';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              initialValue: _dosageUnit,
-                              items: _units
-                                  .map((u) => DropdownMenuItem(
-                                      value: u, child: Text(u)))
-                                  .toList(),
-                              onChanged: (v) =>
-                                  setState(() => _dosageUnit = v!),
-                              decoration: const InputDecoration(
-                                labelText: 'Единица',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Даты и остаток',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 16),
-                            InkWell(
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: _startDate ?? DateTime.now(),
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2035),
-                                );
-                                if (date != null) {
-                                  setState(() => _startDate = date);
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'Дата начала',
-                                  suffixIcon: _startDate != null
-                                      ? IconButton(
-                                          icon: const Icon(Bootstrap.x, size: 18),
-                                          onPressed: () =>
-                                              setState(() => _startDate = null),
-                                        )
-                                      : null,
-                                ),
-                                child: Text(
-                                  _startDate != null
-                                      ? '${_startDate!.day.toString().padLeft(2, '0')}.${_startDate!.month.toString().padLeft(2, '0')}.${_startDate!.year}'
-                                      : 'Не указана',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            InkWell(
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: _endDate ?? _startDate ?? DateTime.now(),
-                                  firstDate: _startDate ?? DateTime.now(),
-                                  lastDate: DateTime(2035),
-                                );
-                                if (date != null) {
-                                  setState(() => _endDate = date);
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'Дата окончания',
-                                  suffixIcon: _endDate != null
-                                      ? IconButton(
-                                          icon: const Icon(Bootstrap.x, size: 18),
-                                          onPressed: () =>
-                                              setState(() => _endDate = null),
-                                        )
-                                      : null,
-                                ),
-                                child: Text(
-                                  _endDate != null
-                                      ? '${_endDate!.day.toString().padLeft(2, '0')}.${_endDate!.month.toString().padLeft(2, '0')}.${_endDate!.year}'
-                                      : 'Не указана',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _remainingPillsController,
-                              decoration: const InputDecoration(
-                                labelText: 'Остаток таблеток',
-                                hintText: 'Необязательно',
-                              ),
-                              keyboardType: TextInputType.number,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Расписание',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 16),
-                            SwitchListTile(
-                              title: const Text('Интервал (каждые X ч)'),
-                              value: _useInterval,
-                              onChanged: (v) =>
-                                  setState(() => _useInterval = v),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            if (_useInterval) ...[
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: TextEditingController(
-                                  text: _intervalHours?.toString() ?? '',
-                                ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Интервал (ч)',
-                                  hintText: '8',
-                                ),
-                                keyboardType: TextInputType.number,
-                                onChanged: (v) => _intervalHours =
-                                    double.tryParse(v),
-                              ),
-                            ] else ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Text('Раз в день:'),
-                                  const SizedBox(width: 12),
-                                  OutlinedButton(
-                                    onPressed: _frequencyPerDay > 1
-                                        ? () => setState(
-                                            () => _frequencyPerDay--)
-                                        : null,
-                                    style: OutlinedButton.styleFrom(
-                                      minimumSize: const Size(36, 36),
-                                      padding: const EdgeInsets.all(0),
-                                    ),
-                                    child: const Icon(Bootstrap.dash, size: 16),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text('$_frequencyPerDay'),
-                                  const SizedBox(width: 12),
-                                  OutlinedButton(
-                                    onPressed: _frequencyPerDay < 6
-                                        ? () => setState(
-                                            () => _frequencyPerDay++)
-                                        : null,
-                                    style: OutlinedButton.styleFrom(
-                                      minimumSize: const Size(36, 36),
-                                      padding: const EdgeInsets.all(0),
-                                    ),
-                                    child: const Icon(Bootstrap.plus_lg, size: 16),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  const Text('Время:'),
-                                  const Spacer(),
-                                  TextButton(
-                                    onPressed: _addTime,
-                                    child: const Text('+ Добавить время'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: _times.asMap().entries.map((entry) {
-                                  return Chip(
-                                    label: Text(entry.value),
-                                    onDeleted: () => _removeTime(entry.key),
-                                    deleteIcon:
-                                        const Icon(Bootstrap.x, size: 16),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Внешний вид',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 16),
-                            const Text('Цвет:', style: TextStyle(fontSize: 12)),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children:
-                                  AppColors.medicationColors.map((colorInt) {
-                                final c = Color(colorInt);
-                                final isSelected = _selectedColor == colorInt;
-                                return GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _selectedColor = colorInt),
-                                  child: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: c,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: isSelected
-                                          ? Border.all(
-                                              color: theme.colorScheme.onSurface,
-                                              width: 3)
-                                          : null,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text('Иконка:',
-                                style: TextStyle(fontSize: 12)),
-                            const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: MedicationIcons.icons.asMap().entries.map((entry) {
-                                final icon = entry.value;
-                                final isSelected = _selectedIcon == icon.codePoint.toString();
-                                return GestureDetector(
-                                  onTap: () => setState(
-                                      () => _selectedIcon = icon.codePoint.toString()),
-                                  child: Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? Color(_selectedColor).withAlpha(30)
-                                          : theme.colorScheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: isSelected
-                                          ? Border.all(
-                                              color: Color(_selectedColor),
-                                              width: 2)
-                                          : null,
-                                    ),
-                                    child: Icon(icon,
-                                        color: isSelected
-                                            ? Color(_selectedColor)
-                                            : null),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Заметки',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 16),
-                            TextField(
-                              controller: _notesController,
-                              decoration: const InputDecoration(
-                                hintText: 'Дополнительные заметки...',
-                              ),
-                              minLines: 3,
-                              maxLines: 5,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+  Widget build(BuildContext context) => Scaffold(
+    body: FTheme(
+      data: (Theme.of(context).brightness == Brightness.dark
+          ? FThemes.zinc.dark
+          : FThemes.zinc.light
+      ).desktop,
+      child: LayoutBuilder(
+        builder: (ctx, _) {
+          final fTheme = ctx.theme;
+          return Column(
+        children: [
+          FHeader.nested(
+            title: Text(_isEditing ? 'Редактировать лекарство' : 'Добавить лекарство'),
+            prefixes: [
+              FButton(
+                variant: .outline,
+                size: .sm,
+                onPress: () => context.pop(),
+                child: const Icon(FLucideIcons.arrowLeft, size: 16),
               ),
-            ),
-    );
-  }
+            ],
+            suffixes: [
+              FButton(
+                onPress: _isLoading ? null : _save,
+                child: _isLoading
+                    ? FCircularProgress(size: .sm)
+                    : const Text('Сохранить'),
+              ),
+            ],
+          ),
+          Expanded(
+            child: _isLoading && _isEditing
+                ? const Center(child: FCircularProgress())
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            FCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Основная информация',
+                                      style: TextStyle(
+                                          fontSize: 16, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 16),
+                                  FTextFormField(
+                                    control: FTextFieldControl.managed(initial: TextEditingValue(text: _name)),
+                                    label: const Text('Название'),
+                                    hint: 'напр. Аспирин',
+                                    validator: (v) =>
+                                        v == null || v.trim().isEmpty ? 'Обязательно' : null,
+                                    onSaved: (v) => _name = v ?? '',
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FTextFormField(
+                                    control: FTextFieldControl.managed(initial: TextEditingValue(text: _description)),
+                                    label: const Text('Описание'),
+                                    hint: 'Необязательно...',
+                                    minLines: 1,
+                                    maxLines: 3,
+                                    onSaved: (v) => _description = v ?? '',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            FCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Дозировка',
+                                      style: TextStyle(
+                                          fontSize: 16, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 16),
+                                  FTextFormField(
+                                    control: FTextFieldControl.managed(initial: TextEditingValue(
+                                        text: _dosageValue == 0 ? '' : _dosageValue.toString())),
+                                    label: const Text('Значение'),
+                                    hint: '0.5',
+                                    keyboardType: TextInputType.number,
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return 'Обязательно';
+                                      }
+                                      if (double.tryParse(v.trim()) == null) {
+                                        return 'Неверное число';
+                                      }
+                                      return null;
+                                    },
+                                    onSaved: (v) => _dosageValue = double.tryParse(v ?? '') ?? 0,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FSelect<String>.rich(
+                                    control: FSelectControl.managed(initial: _dosageUnit),
+                                    hint: 'Выберите единицу',
+                                    format: (s) => s,
+                                    children: [
+                                      for (final unit in _units)
+                                        FSelectItemMixin.item(title: Text(unit), value: unit),
+                                    ],
+                                    onSaved: (v) {
+                                      if (v != null) _dosageUnit = v;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            FCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Даты и остаток',
+                                      style: TextStyle(
+                                          fontSize: 16, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 16),
+                                  FDateField.calendar(
+                                    selectionControl: FDateSelectionControl.managedSingle(
+                                      controller: _startDateController,
+                                      toggleable: true,
+                                    ),
+                                    label: const Text('Дата начала'),
+                                    description: const Text('Выберите дату начала приёма'),
+                                    hint: 'Не указана',
+                                    clearable: true,
+                                    autovalidateMode: AutovalidateMode.disabled,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FDateField.calendar(
+                                    selectionControl: FDateSelectionControl.managedSingle(
+                                      controller: _endDateController,
+                                      toggleable: true,
+                                    ),
+                                    label: const Text('Дата окончания'),
+                                    description: const Text('Выберите дату окончания приёма'),
+                                    hint: 'Не указана',
+                                    clearable: true,
+                                    autovalidateMode: AutovalidateMode.disabled,
+                                    validator: (date) {
+                                      final start = _startDateController.value;
+                                      if (date != null && start != null && date.isBefore(start)) {
+                                        return 'Дата окончания не может быть раньше даты начала';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FTextFormField(
+                                    control: FTextFieldControl.managed(initial: TextEditingValue(
+                                        text: _remainingPills?.toString() ?? '')),
+                                    label: const Text('Остаток таблеток'),
+                                    hint: 'Необязательно',
+                                    keyboardType: TextInputType.number,
+                                    onSaved: (v) => _remainingPills = int.tryParse(v ?? ''),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            FCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Расписание',
+                                      style: TextStyle(
+                                          fontSize: 16, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      const Text('Раз в день:'),
+                                      const SizedBox(width: 12),
+                                      FButton(
+                                        variant: .outline,
+                                        size: .sm,
+                                        mainAxisSize: .min,
+                                        onPress: _frequencyPerDay > 1
+                                            ? () => setState(
+                                                () => _frequencyPerDay--)
+                                            : null,
+                                        child: const Icon(FLucideIcons.minus, size: 16),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text('$_frequencyPerDay'),
+                                      const SizedBox(width: 12),
+                                      FButton(
+                                        variant: .outline,
+                                        size: .sm,
+                                        mainAxisSize: .min,
+                                        onPress: _frequencyPerDay < 6
+                                            ? () => setState(
+                                                () => _frequencyPerDay++)
+                                            : null,
+                                        child: const Icon(FLucideIcons.plus, size: 16),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      const Text('Время:'),
+                                      const Spacer(),
+                                      FButton(
+                                        variant: .outline,
+                                        size: .sm,
+                                        mainAxisSize: .min,
+                                        onPress: _addTime,
+                                        child: const Text('+ Добавить время'),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (_times.isNotEmpty)
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      children: _times.asMap().entries.map((entry) {
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: fTheme.colors.primary.withAlpha(25),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                entry.value,
+                                                style: TextStyle(
+                                                  color: fTheme.colors.primary,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              GestureDetector(
+                                                onTap: () => _removeTime(entry.key),
+                                                child: Icon(
+                                                  FLucideIcons.x,
+                                                  size: 14,
+                                                  color: fTheme.colors.primary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            FCard(
+                              child: Column(
+                                 crossAxisAlignment: CrossAxisAlignment.stretch,
+                                 children: [
+                                  const Text('Внешний вид',
+                                      style: TextStyle(
+                                          fontSize: 16, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 16),
+                                  const Text('Цвет:', style: TextStyle(fontSize: 12)),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children:
+                                        AppColors.medicationColors.map((colorInt) {
+                                      final c = Color(colorInt);
+                                      final isSelected = _selectedColor == colorInt;
+                                      return GestureDetector(
+                                        onTap: () =>
+                                            setState(() => _selectedColor = colorInt),
+                                        child: Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: c,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: isSelected
+                                                ? Border.all(
+                                                    color: fTheme.colors.foreground,
+                                                    width: 3)
+                                                : null,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text('Иконка:',
+                                      style: TextStyle(fontSize: 12)),
+                                  const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: MedicationIcons.icons.asMap().entries.map((entry) {
+                                      final icon = entry.value;
+                                      final isSelected = _selectedIcon == icon.codePoint.toString();
+                                      return GestureDetector(
+                                        onTap: () => setState(
+                                            () => _selectedIcon = icon.codePoint.toString()),
+                                        child: Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? Color(_selectedColor).withAlpha(30)
+                                                : fTheme.colors.primary.withAlpha(10),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: isSelected
+                                                ? Border.all(
+                                                    color: Color(_selectedColor),
+                                                    width: 2)
+                                                : null,
+                                          ),
+                                          child: Icon(icon,
+                                              color: isSelected
+                                                  ? Color(_selectedColor)
+                                                  : null),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            FCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Заметки',
+                                      style: TextStyle(
+                                          fontSize: 16, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 16),
+                                  FTextFormField(
+                                    control: FTextFieldControl.managed(initial: TextEditingValue(text: _notes)),
+                                    label: const Text('Заметки'),
+                                    hint: 'Дополнительные заметки...',
+                                    minLines: 3,
+                                    maxLines: 5,
+                                    onSaved: (v) => _notes = v ?? '',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+          ],
+        );
+        },
+      ),
+    ),
+  );
 }

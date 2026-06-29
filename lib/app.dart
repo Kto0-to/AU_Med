@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:forui/forui.dart';
 
 import 'package:au_med/src/providers/theme_provider.dart';
 import 'package:au_med/src/router/router.dart';
@@ -23,6 +24,7 @@ class AuMedApp extends ConsumerWidget {
         Locale('en'),
       ],
       localizationsDelegates: const [
+        FLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,

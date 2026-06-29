@@ -23,6 +23,11 @@ class NotificationService {
       settings: InitializationSettings(
         android: androidSettings,
         iOS: iosSettings,
+        windows: WindowsInitializationSettings(
+          appName: 'AU MedTraker',
+          appUserModelId: 'au_med',
+          guid: '5f467ba4-a941-4ef3-b2bd-6aa67b8d3dc5',
+        ),
       ),
     );
   }
