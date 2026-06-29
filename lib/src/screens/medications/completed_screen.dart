@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:icon_plus/icon_plus.dart';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:au_med/src/database/database.dart';
@@ -22,7 +23,7 @@ class CompletedScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 64, color: Colors.grey[400]),
+                  Icon(FontAwesome.circle_check, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   const Text('Нет завершённых лекарств',
                       style: TextStyle(fontSize: 16)),
@@ -83,7 +84,7 @@ class _CompletedCard extends StatelessWidget {
                 color: medColor.withAlpha(25),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.check_circle, color: Colors.green, size: 22),
+              child: const Icon(FontAwesome.circle_check, color: Colors.green, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(

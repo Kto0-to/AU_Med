@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:icon_plus/icon_plus.dart';
 
 import 'package:au_med/src/providers/statistics_provider.dart';
 import 'package:au_med/src/theme/app_theme.dart';
@@ -15,12 +16,16 @@ class StatisticsScreen extends ConsumerWidget {
     final streakAsync = ref.watch(streakDaysProvider);
     final dailyLogsAsync = ref.watch(dailyLogsProvider);
     final prnDaysAsync = ref.watch(prnDaysLast30Provider);
+    final missedDaysAsync = ref.watch(missedDaysProvider);
+    final pendingDaysAsync = ref.watch(pendingDaysProvider);
 
     final allError = weeklyAsync.hasError ||
         monthlyAsync.hasError ||
         streakAsync.hasError ||
         dailyLogsAsync.hasError ||
-        prnDaysAsync.hasError;
+        prnDaysAsync.hasError ||
+        missedDaysAsync.hasError ||
+        pendingDaysAsync.hasError;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Статистика')),
@@ -30,6 +35,8 @@ class StatisticsScreen extends ConsumerWidget {
           ref.invalidate(monthlyAdherenceProvider);
           ref.invalidate(streakDaysProvider);
           ref.invalidate(dailyLogsProvider);
+          ref.invalidate(missedDaysProvider);
+          ref.invalidate(pendingDaysProvider);
         },
         child: allError
             ? ListView(
@@ -41,7 +48,7 @@ class StatisticsScreen extends ConsumerWidget {
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.error_outline,
+                            Icon(FontAwesome.circle_xmark,
                                 size: 48, color: Colors.red[300]),
                             const SizedBox(height: 12),
                             const Text('Ошибка загрузки данных'),
@@ -87,6 +94,8 @@ class StatisticsScreen extends ConsumerWidget {
                     _HeatmapCard(
                       dailyLogs: dailyLogsAsync.value!,
                       prnDays: prnDaysAsync.asData?.value ?? {},
+                      missedDays: missedDaysAsync.asData?.value ?? {},
+                      pendingDays: pendingDaysAsync.asData?.value ?? {},
                     )
                   else
                     const Card(child: Padding(
@@ -162,7 +171,7 @@ class _StreakCard extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              Icons.local_fire_department,
+              IonIcons.flame,
               size: 40,
               color: streak > 0 ? Colors.orange : Colors.grey,
             ),
@@ -197,7 +206,14 @@ class _StreakCard extends StatelessWidget {
 class _HeatmapCard extends StatelessWidget {
   final Map<DateTime, List<bool>> dailyLogs;
   final Set<DateTime> prnDays;
-  const _HeatmapCard({required this.dailyLogs, required this.prnDays});
+  final Set<DateTime> missedDays;
+  final Set<DateTime> pendingDays;
+  const _HeatmapCard({
+    required this.dailyLogs,
+    required this.prnDays,
+    required this.missedDays,
+    required this.pendingDays,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -211,13 +227,18 @@ class _HeatmapCard extends StatelessWidget {
       final list = e.value;
       final takenCount = list.where((t) => t).length;
       final totalCount = list.length;
+      final hasPending = pendingDays.contains(e.key);
       int value;
-      if (takenCount == 0) {
-        value = 0;
-      } else if (takenCount < totalCount) {
-        value = 1;
-      } else {
+      if (takenCount == totalCount && !hasPending) {
         value = 2;
+      } else if (missedDays.contains(e.key)) {
+        value = 4;
+      } else if (hasPending) {
+        value = 0;
+      } else if (takenCount == 0) {
+        value = 0;
+      } else {
+        value = 1;
       }
       return (date: e.key, value: value);
     }).toList();
@@ -248,7 +269,9 @@ class _HeatmapCard extends StatelessWidget {
               onCellTap: (date, value) {
                 final formatted = '${date.day}.${date.month}';
                 String status;
-                if (value == 0) {
+                if (value == 4) {
+                  status = 'пропущено всё';
+                } else if (value == 0) {
                   status = 'не принято';
                 } else if (value == 1) {
                   status = 'частично';
@@ -272,6 +295,8 @@ class _HeatmapCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _HmLegend(color: Colors.grey.withAlpha(25), label: 'Нет'),
+                const SizedBox(width: 12),
+                _HmLegend(color: AppColors.missed.withAlpha(200), label: 'Пропущено'),
                 const SizedBox(width: 12),
                 _HmLegend(color: Colors.orange.withAlpha(200), label: 'Часть'),
                 const SizedBox(width: 12),

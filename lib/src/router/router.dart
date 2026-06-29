@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:icon_plus/icon_plus.dart';
 
 import 'package:au_med/src/screens/today/today_screen.dart';
 import 'package:au_med/src/screens/medications/all_medications_screen.dart';
@@ -135,20 +136,20 @@ class _MainShellState extends State<MainShell> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(
-                  icon: Icons.medication_outlined,
-                  activeIcon: Icons.medication,
+                  icon: Bootstrap.capsule_pill,
+                  activeIcon: Bootstrap.capsule_pill,
                   isActive: index == 0,
                   onTap: () => _onTap(0, context),
                 ),
                 _NavItem(
-                  icon: Icons.today_outlined,
-                  activeIcon: Icons.today,
+                  icon: Bootstrap.calendar,
+                  activeIcon: Bootstrap.calendar_date_fill,
                   isActive: index == 1,
                   onTap: () => _onTap(1, context),
                 ),
                 _NavItem(
-                  icon: Icons.bar_chart_outlined,
-                  activeIcon: Icons.bar_chart,
+                  icon: Bootstrap.bar_chart,
+                  activeIcon: Bootstrap.bar_chart_fill,
                   isActive: index == 2,
                   onTap: () => _onTap(2, context),
                 ),

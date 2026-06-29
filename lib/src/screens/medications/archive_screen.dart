@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:icon_plus/icon_plus.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
@@ -53,7 +54,7 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _showCompleted ? Icons.check_circle_outline : Icons.archive_outlined,
+                          _showCompleted ? FontAwesome.circle_check : Bootstrap.archive,
                           size: 64, color: Colors.grey[400],
                         ),
                         const SizedBox(height: 16),
@@ -176,7 +177,7 @@ class _ArchiveCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                isCompleted ? Icons.check_circle : Icons.medication,
+                isCompleted ? FontAwesome.circle_check : Bootstrap.capsule_pill,
                 color: isCompleted ? Colors.green : medColor,
                 size: 22,
               ),
@@ -195,9 +196,9 @@ class _ArchiveCard extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(icon: const Icon(Icons.unarchive), onPressed: onRestore),
+            IconButton(icon: const Icon(Bootstrap.archive_fill), onPressed: onRestore),
             IconButton(
-                icon: const Icon(Icons.delete_outline),
+                icon: const Icon(FontAwesome.trash_can),
                 onPressed: onDelete,
                 color: Colors.red),
           ],

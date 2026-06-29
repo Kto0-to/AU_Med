@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:icon_plus/icon_plus.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class AppColors {
   static const List<int> medicationColors = [
-    0xFF4CAF50,
+    0xFF9ABC04,
     0xFF2196F3,
     0xFFFF9800,
     0xFFE91E63,
@@ -20,7 +21,7 @@ class AppColors {
   static Color getMedicationColor(int index) =>
       Color(medicationColors[index % medicationColors.length]);
 
-  static const taken = Color(0xFF4CAF50);
+  static const taken = Color(0xFF9ABC04);
   static const missed = Color(0xFFF44336);
   static const skipped = Color(0xFFFF9800);
   static const scheduled = Color(0xFF9E9E9E);
@@ -28,34 +29,36 @@ class AppColors {
 
 class MedicationIcons {
   static const icons = [
-    Icons.medication,
-    Icons.medication_liquid,
-    Icons.vaccines,
-    Icons.healing,
-    Icons.spa,
-    Icons.water_drop,
-    Icons.science,
-    Icons.medical_services,
+    LucideIcons.tablets,
+    Bootstrap.capsule,
+    IonIcons.water,
+    LucideIcons.briefcaseMedical,
+    IonIcons.bandage,
+    FontAwesome.bottle_droplet_solid,
+    LucideIcons.syringe,
+    LucideIcons.glassWater,
+    LucideIcons.heartPulse,
   ];
 
   static const iconNames = [
     'таблетка',
-    'жидкость',
-    'спрей',
-    'укол',
-    'травы',
+    'капсула',
     'капли',
-    'порошок',
-    'аптечка',
+    'спрей',
+    'повязка',
+    'сироп',
+    'укол',
+    'стакан',
+    'пульс',
   ];
 
   static IconData fromCodePoint(String? codePoint) {
-    if (codePoint == null) return Icons.medication;
+    if (codePoint == null) return IonIcons.medical;
     final cp = int.parse(codePoint);
     for (final icon in icons) {
       if (icon.codePoint == cp) return icon;
     }
-    return Icons.medication;
+    return IonIcons.medical;
   }
 }
 

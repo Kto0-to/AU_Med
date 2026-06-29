@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:icon_plus/icon_plus.dart';
 
 import 'package:day_night_themed_switcher/day_night_themed_switcher.dart';
 
@@ -32,7 +32,7 @@ class SettingsScreen extends ConsumerWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Тёмная тема',
+                      Text('Выберите тему',
                           style: TextStyle(
                               color: theme.colorScheme.onSurfaceVariant)),
                       DayNightSwitch(
@@ -47,7 +47,7 @@ class SettingsScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  const Text('Цвет акцента',
+                  const Text('Акценты',
                       style:
                           TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 12),
@@ -72,7 +72,7 @@ class SettingsScreen extends ConsumerWidget {
                                 : null,
                           ),
                           child: isSelected
-                              ? const Icon(Icons.check, color: Colors.white, size: 20)
+                              ? const Icon(Bootstrap.check_lg, color: Colors.white, size: 25)
                               : null,
                         ),
                       );
@@ -82,28 +82,28 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Быстрые ссылки',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    leading: const Icon(Icons.archive_outlined),
-                    title: const Text('Архив'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push('/archive'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // const SizedBox(height: 12),
+          // Card(
+          //   child: Padding(
+          //     padding: const EdgeInsets.all(16),
+          //     child: Column(
+          //       crossAxisAlignment: CrossAxisAlignment.start,
+          //       children: [
+          //         const Text('Быстрые ссылки',
+          //             style:
+          //                 TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          //         const SizedBox(height: 12),
+          //         ListTile(
+          //           leading: const Icon(Bootstrap.archive),
+          //           title: const Text('Архив'),
+          //           trailing: const Icon(Bootstrap.chevron_right),
+          //           onTap: () => context.push('/archive'),
+          //           contentPadding: EdgeInsets.zero,
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+          // ),
           const SizedBox(height: 12),
           Card(
             child: Padding(

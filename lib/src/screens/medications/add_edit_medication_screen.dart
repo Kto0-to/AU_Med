@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:icon_plus/icon_plus.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
@@ -341,7 +342,7 @@ class _AddEditMedicationScreenState
                                   labelText: 'Дата начала',
                                   suffixIcon: _startDate != null
                                       ? IconButton(
-                                          icon: const Icon(Icons.clear, size: 18),
+                                          icon: const Icon(Bootstrap.x, size: 18),
                                           onPressed: () =>
                                               setState(() => _startDate = null),
                                         )
@@ -372,7 +373,7 @@ class _AddEditMedicationScreenState
                                   labelText: 'Дата окончания',
                                   suffixIcon: _endDate != null
                                       ? IconButton(
-                                          icon: const Icon(Icons.clear, size: 18),
+                                          icon: const Icon(Bootstrap.x, size: 18),
                                           onPressed: () =>
                                               setState(() => _endDate = null),
                                         )
@@ -445,7 +446,7 @@ class _AddEditMedicationScreenState
                                       minimumSize: const Size(36, 36),
                                       padding: const EdgeInsets.all(0),
                                     ),
-                                    child: const Icon(Icons.remove, size: 16),
+                                    child: const Icon(Bootstrap.dash, size: 16),
                                   ),
                                   const SizedBox(width: 12),
                                   Text('$_frequencyPerDay'),
@@ -459,7 +460,7 @@ class _AddEditMedicationScreenState
                                       minimumSize: const Size(36, 36),
                                       padding: const EdgeInsets.all(0),
                                     ),
-                                    child: const Icon(Icons.add, size: 16),
+                                    child: const Icon(Bootstrap.plus_lg, size: 16),
                                   ),
                                 ],
                               ),
@@ -483,7 +484,7 @@ class _AddEditMedicationScreenState
                                     label: Text(entry.value),
                                     onDeleted: () => _removeTime(entry.key),
                                     deleteIcon:
-                                        const Icon(Icons.close, size: 16),
+                                        const Icon(Bootstrap.x, size: 16),
                                   );
                                 }).toList(),
                               ),

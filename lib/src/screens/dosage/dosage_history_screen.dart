@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:icon_plus/icon_plus.dart';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:au_med/src/providers/database_provider.dart';
@@ -34,7 +35,7 @@ class _DosageHistoryScreenState extends ConsumerState<DosageHistoryScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Bootstrap.plus_lg),
             onPressed: _showAddDosageChangeDialog,
             tooltip: 'Записать изменение дозировки',
           ),
@@ -172,7 +173,7 @@ class _CurrentDosageCard extends StatelessWidget {
                 color: medColor.withAlpha(25),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(Icons.medication, color: medColor, size: 28),
+              child: Icon(Bootstrap.capsule_pill, color: medColor, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -281,7 +282,7 @@ class _LogCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.edit_outlined,
+              Icon(FontAwesome.pen_to_square,
                   size: 18, color: theme.colorScheme.onSurfaceVariant),
             ],
           ),

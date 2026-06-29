@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:icon_plus/icon_plus.dart';
 
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
@@ -38,7 +39,7 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
         title: const Text('Все лекарства'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.archive_outlined),
+            icon: const Icon(Bootstrap.archive),
             onPressed: () => context.push('/archive'),
           ),
         ],
@@ -51,10 +52,10 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Поиск лекарств...',
-                prefixIcon: const Icon(Icons.search, size: 20),
+                prefixIcon: const Icon(Bootstrap.search, size: 20),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
+                        icon: const Icon(Bootstrap.x, size: 16),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _searchQuery = '');
@@ -81,7 +82,7 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.medication_outlined,
+                        Icon(Bootstrap.capsule_pill,
                             size: 64, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(
@@ -157,7 +158,7 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/medications/add'),
-        child: const Icon(Icons.add),
+        child: const Icon(Bootstrap.plus_lg),
       ),
     );
   }
@@ -186,6 +187,8 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
     ref.invalidate(todayPrnTakenProvider);
     ref.invalidate(streakDaysProvider);
     ref.invalidate(dailyLogsProvider);
+    ref.invalidate(missedDaysProvider);
+    ref.invalidate(pendingDaysProvider);
     ref.invalidate(weeklyAdherenceProvider);
     ref.invalidate(monthlyAdherenceProvider);
     ref.invalidate(statusDistributionProvider);
@@ -401,7 +404,7 @@ class _MedicationDetailDialog extends StatelessWidget {
           if (medication.startDate.isNotEmpty) ...[
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 15, color: theme.colorScheme.onSurfaceVariant),
+                Icon(Bootstrap.calendar, size: 15, color: theme.colorScheme.onSurfaceVariant),
                 const SizedBox(width: 6),
                 Text(
                   'Начало: ${DateFormat('d MMM yyyy', 'ru').format(DateTime.parse(medication.startDate))}',
@@ -414,7 +417,7 @@ class _MedicationDetailDialog extends StatelessWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.event, size: 15, color: theme.colorScheme.onSurfaceVariant),
+                Icon(Bootstrap.calendar_date, size: 15, color: theme.colorScheme.onSurfaceVariant),
                 const SizedBox(width: 6),
                 Text(
                   'Окончание: ${DateFormat('d MMM yyyy', 'ru').format(DateTime.parse(medication.endDate!))}',
@@ -427,7 +430,7 @@ class _MedicationDetailDialog extends StatelessWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.inventory_2_outlined, size: 15, color: theme.colorScheme.onSurfaceVariant),
+                Icon(Bootstrap.box, size: 15, color: theme.colorScheme.onSurfaceVariant),
                 const SizedBox(width: 6),
                 Text(
                   'Остаток: ${medication.remainingPills}',
@@ -446,7 +449,7 @@ class _MedicationDetailDialog extends StatelessWidget {
             Center(
               child: FilledButton.icon(
                 onPressed: onTake,
-                icon: const Icon(Icons.check_circle_outline, size: 20),
+                icon: const Icon(FontAwesome.circle_check, size: 20),
                 label: const Text('Принять'),
               ),
             ),
@@ -456,28 +459,28 @@ class _MedicationDetailDialog extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _DialogIconButton(
-                icon: Icons.edit_outlined,
+                icon: FontAwesome.pen_to_square,
                 tooltip: 'Изменить',
                 onTap: onEdit,
               ),
               _DialogIconButton(
-                icon: Icons.archive_outlined,
+                icon: Bootstrap.archive,
                 tooltip: 'Архив',
                 onTap: onArchive,
               ),
               medication.isCompleted
                   ? _DialogIconButton(
-                      icon: Icons.restart_alt,
+                      icon: IonIcons.arrow_redo,
                       tooltip: 'Возобновить',
                       onTap: onRestore,
                     )
                   : _DialogIconButton(
-                      icon: Icons.check_circle_outline,
+                      icon: FontAwesome.circle_check,
                       tooltip: 'Завершить',
                       onTap: onComplete,
                     ),
               _DialogIconButton(
-                icon: Icons.delete_outline,
+                icon: FontAwesome.trash_can,
                 tooltip: 'Удалить',
                 onTap: onDelete,
                 color: Colors.red,

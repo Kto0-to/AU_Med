@@ -103,6 +103,54 @@ class StatisticsDao {
     return rows.length;
   }
 
+  Future<Set<DateTime>> missedDaysForPeriod(DateTime start, DateTime end) async {
+    final rows = await (_db.select(_db.medicationLogsTable).join([
+      innerJoin(
+        _db.medicationsTable,
+        _db.medicationsTable.id.equalsExp(_db.medicationLogsTable.medicationId),
+      ),
+    ])
+      ..where(
+        _db.medicationLogsTable.status.equals('missed') &
+        _db.medicationLogsTable.scheduledTime.isBetweenValues(
+            start.toIso8601String(), end.toIso8601String()) &
+        _db.medicationsTable.times.equals('').not(),
+      ))
+      .get();
+
+    final result = <DateTime>{};
+    for (final row in rows) {
+      final log = row.readTable(_db.medicationLogsTable);
+      final day = DateTime.parse(log.scheduledTime);
+      result.add(DateTime(day.year, day.month, day.day));
+    }
+    return result;
+  }
+
+  Future<Set<DateTime>> pendingDaysForPeriod(DateTime start, DateTime end) async {
+    final rows = await (_db.select(_db.medicationLogsTable).join([
+      innerJoin(
+        _db.medicationsTable,
+        _db.medicationsTable.id.equalsExp(_db.medicationLogsTable.medicationId),
+      ),
+    ])
+      ..where(
+        _db.medicationLogsTable.status.equals('scheduled') &
+        _db.medicationLogsTable.scheduledTime.isBetweenValues(
+            start.toIso8601String(), end.toIso8601String()) &
+        _db.medicationsTable.times.equals('').not(),
+      ))
+      .get();
+
+    final result = <DateTime>{};
+    for (final row in rows) {
+      final log = row.readTable(_db.medicationLogsTable);
+      final day = DateTime.parse(log.scheduledTime);
+      result.add(DateTime(day.year, day.month, day.day));
+    }
+    return result;
+  }
+
   Future<Set<DateTime>> prnDaysForPeriod(DateTime start, DateTime end) async {
     final rows = await (_db.select(_db.medicationLogsTable).join([
       innerJoin(
@@ -128,10 +176,13 @@ class StatisticsDao {
   }
 
   Future<int> streakDays() async {
-    final now = DateTime.now();
+    return streakDaysUpTo(DateTime.now());
+  }
+
+  Future<int> streakDaysUpTo(DateTime date) async {
     int streak = 0;
     for (int i = 0; i < 365; i++) {
-      final day = now.subtract(Duration(days: i));
+      final day = date.subtract(Duration(days: i));
       final dayStart = DateTime(day.year, day.month, day.day);
       final dayEnd = dayStart.add(const Duration(days: 1));
       final results = await (_db.select(_db.medicationLogsTable).join([

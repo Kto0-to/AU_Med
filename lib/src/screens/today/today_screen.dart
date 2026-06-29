@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
+import 'package:icon_plus/icon_plus.dart';
 
 import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
@@ -14,6 +14,7 @@ import 'package:au_med/src/providers/statistics_provider.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/theme/app_theme.dart';
 import 'package:au_med/src/services/notification_service.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' show LucideIcons;
 
 bool _timeMatches(String scheduledTime, String timeString) {
   return scheduledTime.contains(timeString);
@@ -50,27 +51,60 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     }
   }
 
-  List<({MedicationsTableData medication, String? time, MedicationLogsTableData? log})> _buildSlots(
+  List<
+    ({
+      MedicationsTableData medication,
+      String? time,
+      MedicationLogsTableData? log,
+    })
+  >
+  _buildSlots(
     List<MedicationsTableData> medications,
     List<MedicationLogsTableData> logs,
   ) {
-    return medications.where((med) {
-      if (med.startDate.isEmpty) return true;
-      final start = DateTime.tryParse(med.startDate);
-      if (start == null) return true;
-      final day = DateTime(_normalizedDate.year, _normalizedDate.month, _normalizedDate.day);
-      return !day.isBefore(start);
-    }).expand<({MedicationsTableData medication, String? time, MedicationLogsTableData? log})>((med) {
-      final times = med.times.split(',').where((t) => t.isNotEmpty).toList();
-      if (times.isEmpty) return <({MedicationsTableData medication, String? time, MedicationLogsTableData? log})>[];
-      return times.map((time) {
-        final log = logs
-            .where((l) =>
-                l.medicationId == med.id && _timeMatches(l.scheduledTime, time))
-            .firstOrNull;
-        return (medication: med, time: time, log: log);
-      });
-    }).toList()
+    return medications
+        .where((med) {
+          if (med.startDate.isEmpty) return true;
+          final start = DateTime.tryParse(med.startDate);
+          if (start == null) return true;
+          final day = DateTime(
+            _normalizedDate.year,
+            _normalizedDate.month,
+            _normalizedDate.day,
+          );
+          return !day.isBefore(start);
+        })
+        .expand<
+          ({
+            MedicationsTableData medication,
+            String? time,
+            MedicationLogsTableData? log,
+          })
+        >((med) {
+          final times = med.times
+              .split(',')
+              .where((t) => t.isNotEmpty)
+              .toList();
+          if (times.isEmpty)
+            return <
+              ({
+                MedicationsTableData medication,
+                String? time,
+                MedicationLogsTableData? log,
+              })
+            >[];
+          return times.map((time) {
+            final log = logs
+                .where(
+                  (l) =>
+                      l.medicationId == med.id &&
+                      _timeMatches(l.scheduledTime, time),
+                )
+                .firstOrNull;
+            return (medication: med, time: time, log: log);
+          });
+        })
+        .toList()
       ..sort((a, b) {
         final aTime = a.time ?? '';
         final bTime = b.time ?? '';
@@ -82,9 +116,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   Widget build(BuildContext context) {
     final medicationsAsync = ref.watch(activeMedicationsProvider);
     final logsAsync = ref.watch(logsForDateProvider(_normalizedDate));
-    final streakAsync = ref.watch(streakDaysProvider);
+    final streakAsync = ref.watch(streakDaysUpToProvider(_normalizedDate));
     final dailyLogsAsync = ref.watch(dailyLogsProvider);
     final prnDaysAsync = ref.watch(prnDaysLast30Provider);
+    final missedDaysAsync = ref.watch(missedDaysProvider);
+    final pendingDaysAsync = ref.watch(pendingDaysProvider);
 
     final dateKey = _normalizedDate.toIso8601String().substring(0, 10);
     if (_autoMarkKey != dateKey) {
@@ -94,8 +130,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         final meds = await ref.read(activeMedicationsProvider.future);
         await dao.autoMarkMissedForDate(meds, _normalizedDate);
         ref.invalidate(logsForDateProvider(_normalizedDate));
-        ref.invalidate(streakDaysProvider);
+        ref.invalidate(streakDaysUpToProvider(_normalizedDate));
         ref.invalidate(dailyLogsProvider);
+        ref.invalidate(missedDaysProvider);
+        ref.invalidate(pendingDaysProvider);
       });
     }
 
@@ -108,16 +146,16 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         actions: [
           if (!_isToday)
             IconButton(
-              icon: const Icon(Icons.today_outlined),
+              icon: const Icon(LucideIcons.calendarDays),
               tooltip: 'Сегодня',
               onPressed: () => setState(() => _selectedDate = DateTime.now()),
             ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(LucideIcons.settings),
             onPressed: () => context.push('/settings'),
           ),
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(LucideIcons.plus),
             onPressed: () => context.push('/medications/add'),
           ),
         ],
@@ -125,221 +163,256 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       body: GestureDetector(
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity! < 0) {
-            setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)));
+            setState(
+              () => _selectedDate = _selectedDate.add(const Duration(days: 1)),
+            );
           } else if (details.primaryVelocity! > 0) {
-            setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)));
+            setState(
+              () => _selectedDate = _selectedDate.subtract(
+                const Duration(days: 1),
+              ),
+            );
           }
         },
         child: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(activeMedicationsProvider),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _DateNavigation(
-              selectedDate: _normalizedDate,
-              isToday: _isToday,
-              onBack: () =>
-                  setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1))),
-              onForward: () =>
-                  setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1))),
-              onTapDate: _pickDate,
-            ),
-            medicationsAsync.when(
-              data: (medications) => logsAsync.when(
-                data: (logs) {
-                  final scheduled = medications.where((m) => m.times.split(',').where((t) => t.isNotEmpty).isNotEmpty).toList();
-                  final prn = medications.where((m) => m.times.split(',').where((t) => t.isNotEmpty).isEmpty).toList();
-                  final slots = _buildSlots(scheduled, logs);
-                  final now = DateTime.now();
-                  int taken = 0, skipped = 0, missed = 0, pending = 0;
-                  for (final slot in slots) {
-                    final status = slot.log?.status;
-                    if (status == 'taken') {
-                      taken++;
-                    } else if (status == 'skipped') {
-                      skipped++;
-                    } else if (status == 'missed') {
-                      missed++;
-                    } else if (status == 'scheduled') {
-                      if (slot.time != null && _isToday) {
-                        final parts = slot.time!.split(':');
-                        final slotTime = DateTime(
-                          _normalizedDate.year,
-                          _normalizedDate.month,
-                          _normalizedDate.day,
-                          int.parse(parts[0]),
-                          int.parse(parts[1]),
-                        );
-                        if (slotTime.isAfter(now)) {
-                          pending++;
-                        } else {
-                          missed++;
-                        }
-                      } else if (slot.time != null) {
+          onRefresh: () async => ref.invalidate(activeMedicationsProvider),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _DateNavigation(
+                selectedDate: _normalizedDate,
+                isToday: _isToday,
+                onBack: () => setState(
+                  () => _selectedDate = _selectedDate.subtract(
+                    const Duration(days: 1),
+                  ),
+                ),
+                onForward: () => setState(
+                  () => _selectedDate = _selectedDate.add(
+                    const Duration(days: 1),
+                  ),
+                ),
+                onTapDate: _pickDate,
+              ),
+              medicationsAsync.when(
+                data: (medications) => logsAsync.when(
+                  data: (logs) {
+                    final scheduled = medications
+                        .where(
+                          (m) => m.times
+                              .split(',')
+                              .where((t) => t.isNotEmpty)
+                              .isNotEmpty,
+                        )
+                        .toList();
+                    final prn = medications
+                        .where(
+                          (m) => m.times
+                              .split(',')
+                              .where((t) => t.isNotEmpty)
+                              .isEmpty,
+                        )
+                        .toList();
+                    final slots = _buildSlots(scheduled, logs);
+                    final now = DateTime.now();
+                    int taken = 0, skipped = 0, missed = 0, pending = 0;
+                    for (final slot in slots) {
+                      final status = slot.log?.status;
+                      if (status == 'taken') {
+                        taken++;
+                      } else if (status == 'skipped') {
+                        skipped++;
+                      } else if (status == 'missed') {
                         missed++;
+                      } else if (status == 'scheduled') {
+                        if (slot.time != null && _isToday) {
+                          final parts = slot.time!.split(':');
+                          final slotTime = DateTime(
+                            _normalizedDate.year,
+                            _normalizedDate.month,
+                            _normalizedDate.day,
+                            int.parse(parts[0]),
+                            int.parse(parts[1]),
+                          );
+                          if (slotTime.isAfter(now)) {
+                            pending++;
+                          } else {
+                            missed++;
+                          }
+                        } else if (slot.time != null) {
+                          missed++;
+                        } else {
+                          pending++;
+                        }
                       } else {
                         pending++;
                       }
-                    } else {
-                      pending++;
                     }
-                  }
-                  int prnTaken = 0;
-                  for (final med in prn) {
-                    prnTaken += logs.where((l) => l.medicationId == med.id && l.status == 'taken').length;
-                  }
-                  final total = slots.length;
-                  return _ProgressSummary(
-                    taken: taken,
-                    skipped: skipped,
-                    missed: missed,
-                    pending: pending,
-                    total: total,
-                    prnTaken: prnTaken,
+                    int prnTaken = 0;
+                    for (final med in prn) {
+                      prnTaken += logs
+                          .where(
+                            (l) =>
+                                l.medicationId == med.id && l.status == 'taken',
+                          )
+                          .length;
+                    }
+                    final total = slots.length;
+                    return _ProgressSummary(
+                      taken: taken,
+                      skipped: skipped,
+                      missed: missed,
+                      pending: pending,
+                      total: total,
+                      prnTaken: prnTaken,
+                      date: _normalizedDate,
+                      streak: streakAsync.value ?? 0,
+                    );
+                  },
+                  loading: () => _ProgressSummary(
+                    taken: 0,
+                    skipped: 0,
+                    missed: 0,
+                    pending: 0,
+                    total: 0,
+                    prnTaken: 0,
                     date: _normalizedDate,
                     streak: streakAsync.value ?? 0,
-                  );
-                },
+                  ),
+                  error: (_, _) => _ProgressSummary(
+                    taken: 0,
+                    skipped: 0,
+                    missed: 0,
+                    pending: 0,
+                    total: 0,
+                    prnTaken: 0,
+                    date: _normalizedDate,
+                    streak: streakAsync.value ?? 0,
+                  ),
+                ),
                 loading: () => _ProgressSummary(
-                  taken: 0, skipped: 0, missed: 0, pending: 0, total: 0,
+                  taken: 0,
+                  skipped: 0,
+                  missed: 0,
+                  pending: 0,
+                  total: 0,
                   prnTaken: 0,
-                  date: _normalizedDate, streak: streakAsync.value ?? 0,
+                  date: _normalizedDate,
+                  streak: streakAsync.value ?? 0,
                 ),
                 error: (_, _) => _ProgressSummary(
-                  taken: 0, skipped: 0, missed: 0, pending: 0, total: 0,
+                  taken: 0,
+                  skipped: 0,
+                  missed: 0,
+                  pending: 0,
+                  total: 0,
                   prnTaken: 0,
-                  date: _normalizedDate, streak: streakAsync.value ?? 0,
+                  date: _normalizedDate,
+                  streak: streakAsync.value ?? 0,
                 ),
               ),
-              loading: () => _ProgressSummary(
-                taken: 0, skipped: 0, missed: 0, pending: 0, total: 0,
-                prnTaken: 0,
-                date: _normalizedDate, streak: streakAsync.value ?? 0,
+              const SizedBox(height: 10),
+              dailyLogsAsync.when(
+                data: (dailyLogs) => _WeekCalendar(
+                  selectedDate: _normalizedDate,
+                  dailyLogs: dailyLogs,
+                  prnOnlyDays: prnDaysAsync.asData?.value ?? {},
+                  missedDays: missedDaysAsync.asData?.value ?? {},
+                  pendingDays: pendingDaysAsync.asData?.value ?? {},
+                  onSelectDate: (date) => setState(() => _selectedDate = date),
+                ),
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
-              error: (_, _) => _ProgressSummary(
-                taken: 0, skipped: 0, missed: 0, pending: 0, total: 0,
-                prnTaken: 0,
-                date: _normalizedDate, streak: streakAsync.value ?? 0,
-              ),
-            ),
-            const SizedBox(height: 12),
-            dailyLogsAsync.when(
-              data: (dailyLogs) => _WeekCalendar(
-                selectedDate: _normalizedDate,
-                dailyLogs: dailyLogs,
-                prnOnlyDays: prnDaysAsync.asData?.value ?? {},
-                onSelectDate: (date) =>
-                    setState(() => _selectedDate = date),
-              ),
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 12),
-            medicationsAsync.when(
-              data: (medications) {
-                if (medications.isEmpty) {
-                  return _EmptyState();
-                }
-                return logsAsync.when(
-                  data: (logs) {
-                    final scheduled = medications.where((m) => m.times.split(',').where((t) => t.isNotEmpty).isNotEmpty).toList();
-                    final prn = medications.where((m) => m.times.split(',').where((t) => t.isNotEmpty).isEmpty).toList();
-                    final slots = _buildSlots(scheduled, logs);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _MedicationTimeline(
-                          slots: slots,
-                          isToday: _isToday,
-                          selectedDate: _normalizedDate,
-                           onMarkTaken: (medicationId, time) async {
-                             final dao = ref.read(logsDaoProvider);
-                             final now = DateTime.now();
-                             final existingLogs = await dao.getForMedicationOnDate(
-                                 medicationId, _normalizedDate);
-                             final log = existingLogs.where((l) =>
-                                 time == null || _timeMatches(l.scheduledTime, time)).firstOrNull;
-                             if (log != null) {
-                               if (log.status == 'taken') {
-                                 await dao.updateLog(log.id, MedicationLogsTableCompanion(
-                                   status: const Value('scheduled'),
-                                   takenTime: const Value(null),
-                                 ));
-                               } else {
-                                 await dao.markTaken(log.id, now);
-                               }
-                             } else {
-                               final scheduledTime = time != null
-                                   ? '${_normalizedDate.toIso8601String().split('T').first}T$time:00'
-                                   : now.toIso8601String();
-                               await dao.insert(MedicationLogsTableCompanion(
-                                 medicationId: Value(medicationId),
-                                 scheduledTime: Value(scheduledTime),
-                                 status: const Value('taken'),
-                                 takenTime: Value(now.toIso8601String()),
-                                 createdAt: Value(now.toIso8601String()),
-                               ));
-                             }
-                             await NotificationService().cancelMedicationReminders(medicationId);
-                             ref.invalidate(logsForDateProvider(_normalizedDate));
-                             ref.invalidate(streakDaysProvider);
-                             ref.invalidate(dailyLogsProvider);
-                             ref.invalidate(weeklyAdherenceProvider);
-                             ref.invalidate(monthlyAdherenceProvider);
-                             ref.invalidate(statusDistributionProvider);
-                           },
-                          onEdit: (medication) =>
-                              context.push('/medications/${medication.id}/edit'),
-                          onDelete: (medication) async {
-                            final dao = ref.read(medicationsDaoProvider);
-                            await dao.deleteMedication(medication.id);
-                            ref.invalidate(activeMedicationsProvider);
-                            ref.invalidate(allMedicationsProvider);
-                          },
-                          onArchive: (medication) async {
-                            final dao = ref.read(medicationsDaoProvider);
-                            await dao.archive(medication.id);
-                            ref.invalidate(activeMedicationsProvider);
-                            ref.invalidate(allMedicationsProvider);
-                          },
-                          onComplete: (medication) async {
-                            final dao = ref.read(medicationsDaoProvider);
-                            await dao.markCompleted(medication.id);
-                            ref.invalidate(activeMedicationsProvider);
-                            ref.invalidate(allMedicationsProvider);
-                          },
-                          onRestore: (medication) async {
-                            final dao = ref.read(medicationsDaoProvider);
-                            await dao.uncomplete(medication.id);
-                            ref.invalidate(activeMedicationsProvider);
-                            ref.invalidate(allMedicationsProvider);
-                          },
-                        ),
-                        if (prn.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          _PrnSection(
-                            prn: prn,
-                            logs: logs,
+              const SizedBox(height: 12),
+              medicationsAsync.when(
+                data: (medications) {
+                  if (medications.isEmpty) {
+                    return _EmptyState();
+                  }
+                  return logsAsync.when(
+                    data: (logs) {
+                      final scheduled = medications
+                          .where(
+                            (m) => m.times
+                                .split(',')
+                                .where((t) => t.isNotEmpty)
+                                .isNotEmpty,
+                          )
+                          .toList();
+                      final prn = medications
+                          .where(
+                            (m) => m.times
+                                .split(',')
+                                .where((t) => t.isNotEmpty)
+                                .isEmpty,
+                          )
+                          .toList();
+                      final slots = _buildSlots(scheduled, logs);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _MedicationTimeline(
+                            slots: slots,
                             isToday: _isToday,
                             selectedDate: _normalizedDate,
-                            onCancelTake: (medicationId) async {
+                            onMarkTaken: (medicationId, time) async {
                               final dao = ref.read(logsDaoProvider);
-                              final logs = await dao.getForMedicationOnDate(medicationId, _normalizedDate);
-                              final takenLogs = logs.where((l) => l.status == 'taken').toList()
-                                ..sort((a, b) => b.scheduledTime.compareTo(a.scheduledTime));
-                              if (takenLogs.isNotEmpty) {
-                                await dao.deleteLog(takenLogs.first.id);
+                              final now = DateTime.now();
+                              final existingLogs = await dao
+                                  .getForMedicationOnDate(
+                                    medicationId,
+                                    _normalizedDate,
+                                  );
+                              final log = existingLogs
+                                  .where(
+                                    (l) =>
+                                        time == null ||
+                                        _timeMatches(l.scheduledTime, time),
+                                  )
+                                  .firstOrNull;
+                              if (log != null) {
+                                if (log.status == 'taken') {
+                                  await dao.updateLog(
+                                    log.id,
+                                    MedicationLogsTableCompanion(
+                                      status: const Value('scheduled'),
+                                      takenTime: const Value(null),
+                                    ),
+                                  );
+                                } else {
+                                  await dao.markTaken(log.id, now);
+                                }
+                              } else {
+                                final scheduledTime = time != null
+                                    ? '${_normalizedDate.toIso8601String().split('T').first}T$time:00'
+                                    : now.toIso8601String();
+                                await dao.insert(
+                                  MedicationLogsTableCompanion(
+                                    medicationId: Value(medicationId),
+                                    scheduledTime: Value(scheduledTime),
+                                    status: const Value('taken'),
+                                    takenTime: Value(now.toIso8601String()),
+                                    createdAt: Value(now.toIso8601String()),
+                                  ),
+                                );
                               }
-                              ref.invalidate(logsForDateProvider(_normalizedDate));
-                              ref.invalidate(streakDaysProvider);
+                              await NotificationService()
+                                  .cancelMedicationReminders(medicationId);
+                              ref.invalidate(
+                                logsForDateProvider(_normalizedDate),
+                              );
+                              ref.invalidate(streakDaysUpToProvider(_normalizedDate));
                               ref.invalidate(dailyLogsProvider);
+                              ref.invalidate(missedDaysProvider);
+                              ref.invalidate(pendingDaysProvider);
                               ref.invalidate(weeklyAdherenceProvider);
                               ref.invalidate(monthlyAdherenceProvider);
                               ref.invalidate(statusDistributionProvider);
-                              ref.invalidate(todayPrnTakenProvider);
                             },
-                            onEdit: (medication) =>
-                                context.push('/medications/${medication.id}/edit'),
+                            onEdit: (medication) => context.push(
+                              '/medications/${medication.id}/edit',
+                            ),
                             onDelete: (medication) async {
                               final dao = ref.read(medicationsDaoProvider);
                               await dao.deleteMedication(medication.id);
@@ -364,44 +437,121 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                               ref.invalidate(activeMedicationsProvider);
                               ref.invalidate(allMedicationsProvider);
                             },
-                            onMarkTaken: (medicationId) async {
-                              final dao = ref.read(logsDaoProvider);
-                              final now = DateTime.now();
-                              final scheduledTime = DateTime(
-                                _normalizedDate.year, _normalizedDate.month, _normalizedDate.day,
-                                now.hour, now.minute, now.second,
-                              );
-                              await dao.insert(MedicationLogsTableCompanion(
-                                medicationId: Value(medicationId),
-                                scheduledTime: Value(scheduledTime.toIso8601String()),
-                                status: const Value('taken'),
-                                takenTime: Value(now.toIso8601String()),
-                                createdAt: Value(now.toIso8601String()),
-                              ));
-                              await NotificationService().cancelMedicationReminders(medicationId);
-                              ref.invalidate(logsForDateProvider(_normalizedDate));
-                              ref.invalidate(streakDaysProvider);
-                              ref.invalidate(dailyLogsProvider);
-                              ref.invalidate(weeklyAdherenceProvider);
-                              ref.invalidate(monthlyAdherenceProvider);
-                              ref.invalidate(statusDistributionProvider);
-                              ref.invalidate(todayPrnTakenProvider);
-                            },
                           ),
+                          if (prn.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            _PrnSection(
+                              prn: prn,
+                              logs: logs,
+                              isToday: _isToday,
+                              selectedDate: _normalizedDate,
+                              onCancelTake: (medicationId) async {
+                                final dao = ref.read(logsDaoProvider);
+                                final logs = await dao.getForMedicationOnDate(
+                                  medicationId,
+                                  _normalizedDate,
+                                );
+                                final takenLogs =
+                                    logs
+                                        .where((l) => l.status == 'taken')
+                                        .toList()
+                                      ..sort(
+                                        (a, b) => b.scheduledTime.compareTo(
+                                          a.scheduledTime,
+                                        ),
+                                      );
+                                if (takenLogs.isNotEmpty) {
+                                  await dao.deleteLog(takenLogs.first.id);
+                                }
+                                ref.invalidate(
+                                  logsForDateProvider(_normalizedDate),
+                                );
+                                ref.invalidate(streakDaysUpToProvider(_normalizedDate));
+                                ref.invalidate(dailyLogsProvider);
+                                ref.invalidate(missedDaysProvider);
+                                ref.invalidate(weeklyAdherenceProvider);
+                                ref.invalidate(monthlyAdherenceProvider);
+                                ref.invalidate(statusDistributionProvider);
+                                ref.invalidate(todayPrnTakenProvider);
+                              },
+                              onEdit: (medication) => context.push(
+                                '/medications/${medication.id}/edit',
+                              ),
+                              onDelete: (medication) async {
+                                final dao = ref.read(medicationsDaoProvider);
+                                await dao.deleteMedication(medication.id);
+                                ref.invalidate(activeMedicationsProvider);
+                                ref.invalidate(allMedicationsProvider);
+                              },
+                              onArchive: (medication) async {
+                                final dao = ref.read(medicationsDaoProvider);
+                                await dao.archive(medication.id);
+                                ref.invalidate(activeMedicationsProvider);
+                                ref.invalidate(allMedicationsProvider);
+                              },
+                              onComplete: (medication) async {
+                                final dao = ref.read(medicationsDaoProvider);
+                                await dao.markCompleted(medication.id);
+                                ref.invalidate(activeMedicationsProvider);
+                                ref.invalidate(allMedicationsProvider);
+                              },
+                              onRestore: (medication) async {
+                                final dao = ref.read(medicationsDaoProvider);
+                                await dao.uncomplete(medication.id);
+                                ref.invalidate(activeMedicationsProvider);
+                                ref.invalidate(allMedicationsProvider);
+                              },
+                              onMarkTaken: (medicationId) async {
+                                final dao = ref.read(logsDaoProvider);
+                                final now = DateTime.now();
+                                final scheduledTime = DateTime(
+                                  _normalizedDate.year,
+                                  _normalizedDate.month,
+                                  _normalizedDate.day,
+                                  now.hour,
+                                  now.minute,
+                                  now.second,
+                                );
+                                await dao.insert(
+                                  MedicationLogsTableCompanion(
+                                    medicationId: Value(medicationId),
+                                    scheduledTime: Value(
+                                      scheduledTime.toIso8601String(),
+                                    ),
+                                    status: const Value('taken'),
+                                    takenTime: Value(now.toIso8601String()),
+                                    createdAt: Value(now.toIso8601String()),
+                                  ),
+                                );
+                                await NotificationService()
+                                    .cancelMedicationReminders(medicationId);
+                                ref.invalidate(
+                                  logsForDateProvider(_normalizedDate),
+                                );
+                                ref.invalidate(streakDaysUpToProvider(_normalizedDate));
+                                ref.invalidate(dailyLogsProvider);
+                                ref.invalidate(missedDaysProvider);
+                                ref.invalidate(weeklyAdherenceProvider);
+                                ref.invalidate(monthlyAdherenceProvider);
+                                ref.invalidate(statusDistributionProvider);
+                                ref.invalidate(todayPrnTakenProvider);
+                              },
+                            ),
+                          ],
                         ],
-                      ],
-                    );
-                  },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Ошибка: $e')),
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Ошибка: $e')),
-            ),
-          ],
+                      );
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('Ошибка: $e')),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Ошибка: $e')),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -425,13 +575,13 @@ class _DateNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.chevron_left),
+              icon: const Icon(LucideIcons.chevronLeft),
               onPressed: onBack,
             ),
             Expanded(
@@ -448,7 +598,7 @@ class _DateNavigation extends StatelessWidget {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.chevron_right),
+              icon: const Icon(LucideIcons.chevronRight),
               onPressed: isToday ? null : onForward,
             ),
           ],
@@ -462,12 +612,16 @@ class _WeekCalendar extends StatelessWidget {
   final DateTime selectedDate;
   final Map<DateTime, List<bool>> dailyLogs;
   final Set<DateTime> prnOnlyDays;
+  final Set<DateTime> missedDays;
+  final Set<DateTime> pendingDays;
   final ValueChanged<DateTime> onSelectDate;
 
   const _WeekCalendar({
     required this.selectedDate,
     required this.dailyLogs,
     required this.prnOnlyDays,
+    required this.missedDays,
+    required this.pendingDays,
     required this.onSelectDate,
   });
 
@@ -476,7 +630,9 @@ class _WeekCalendar extends StatelessWidget {
     final theme = Theme.of(context);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final weekStart = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
+    final weekStart = selectedDate.subtract(
+      Duration(days: selectedDate.weekday - 1),
+    );
     final weekdayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
     return Card(
@@ -496,14 +652,16 @@ class _WeekCalendar extends StatelessWidget {
 
             if (logs != null && logs.isNotEmpty) {
               final taken = logs.where((t) => t).length;
-              if (taken == logs.length) {
-                indicatorColor = Colors.green.withAlpha(180);
-                hasColor = true;
-              } else if (taken == 0 && !isFuture) {
+              if (missedDays.contains(day) && !isFuture) {
                 indicatorColor = Colors.red.withAlpha(180);
                 hasColor = true;
+              } else if (pendingDays.contains(day)) {
+                indicatorColor = Colors.transparent;
+              } else if (taken == logs.length) {
+                indicatorColor = Colors.green.withAlpha(180);
+                hasColor = true;
               } else if (taken > 0) {
-                indicatorColor = Colors.orange.withAlpha(180);
+                indicatorColor = Colors.orange.withAlpha(150);
                 hasColor = true;
               } else {
                 indicatorColor = Colors.transparent;
@@ -529,7 +687,8 @@ class _WeekCalendar extends StatelessWidget {
                   border: isSelected
                       ? Border.all(
                           color: theme.colorScheme.primary.withAlpha(100),
-                          width: 1.5)
+                          width: 1.5,
+                        )
                       : null,
                 ),
                 child: Column(
@@ -541,26 +700,28 @@ class _WeekCalendar extends StatelessWidget {
                         color: isSelected
                             ? theme.colorScheme.primary
                             : theme.colorScheme.onSurfaceVariant,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: isSelected
+                            ? FontWeight.w800
+                            : FontWeight.normal,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     Text(
                       '${day.day}',
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                         color: isSelected
                             ? theme.colorScheme.primary
                             : theme.colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Container(
-                      width: 6,
-                      height: 6,
+                      width: 7,
+                      height: 7,
                       decoration: BoxDecoration(
                         color: hasColor ? indicatorColor : Colors.transparent,
                         shape: BoxShape.circle,
@@ -628,7 +789,7 @@ class _DayProgressPainter extends CustomPainter {
       );
       startAngle += gapAngle + sweep + gapAngle;
     }
-
+//! color green
     drawArc(taken, AppColors.taken);
     drawArc(skipped, AppColors.skipped);
     drawArc(missed, AppColors.missed);
@@ -668,8 +829,15 @@ class _ProgressSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final now = DateTime.now();
-    final isToday = DateTime(date.year, date.month, date.day) ==
+    final isToday =
+        DateTime(date.year, date.month, date.day) ==
         DateTime(now.year, now.month, now.day);
+
+    String _dayLabel(int n) {
+      if (n % 10 == 1 && n % 100 != 11) return 'день';
+      if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'дня';
+      return 'дней';
+    }
 
     return Card(
       child: Padding(
@@ -699,11 +867,15 @@ class _ProgressSummary extends StatelessWidget {
                     ),
                   ),
                   if (prnTaken > 0) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.check_circle, size: 14, color: theme.colorScheme.primary),
-                        const SizedBox(width: 4),
+                        Icon(
+                          LucideIcons.squareCheck,
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 2),
                         Text(
                           'По требованию: $prnTaken',
                           style: TextStyle(
@@ -732,29 +904,38 @@ class _ProgressSummary extends StatelessWidget {
                     total > 0 ? '${(taken * 100 ~/ total)}%' : '0%',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: total == 0 ? Colors.grey : AppColors.taken,
+                      color: total == 0 ? Colors.grey : AppColors.taken, //!color
                       fontSize: 13,
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 26),
             Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.local_fire_department,
-                    color: streak > 0 ? Colors.orange : Colors.grey, size: 28),
-                const SizedBox(height: 4),
-                Text(
-                  '$streak',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: streak > 0 ? Colors.orange : Colors.grey,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.flame,
+                      color: streak > 0 ? Colors.orange : Colors.grey,
+                      size: 38,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$streak',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                        color: streak > 0 ? Colors.orange : Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
                 Text(
-                  'дней',
+                  _dayLabel(streak),
                   style: TextStyle(
                     fontSize: 12,
                     color: theme.colorScheme.onSurfaceVariant,
@@ -778,7 +959,7 @@ class _EmptyState extends StatelessWidget {
         padding: const EdgeInsets.all(48),
         child: Column(
           children: [
-            Icon(Icons.medication_outlined, size: 64, color: Colors.grey[400]),
+            Icon(Bootstrap.capsule_pill, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'Нет лекарств',
@@ -797,7 +978,14 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _MedicationTimeline extends StatelessWidget {
-  final List<({MedicationsTableData medication, String? time, MedicationLogsTableData? log})> slots;
+  final List<
+    ({
+      MedicationsTableData medication,
+      String? time,
+      MedicationLogsTableData? log,
+    })
+  >
+  slots;
   final bool isToday;
   final DateTime selectedDate;
   final Function(int medicationId, String? time) onMarkTaken;
@@ -830,56 +1018,64 @@ class _MedicationTimeline extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Text(
-          isToday ? 'Расписание на сегодня' : "Расписание на ${DateFormat('d MMMM', 'ru').format(selectedDate)}",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+          isToday
+              ? 'Расписание на сегодня'
+              : "Расписание на ${DateFormat('d MMMM', 'ru').format(selectedDate)}",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
       ),
     ];
 
     for (final slot in slots) {
       final isTaken = slot.log?.status == 'taken';
-      children.add(_MedicationTimeSlot(
-        medication: slot.medication,
-        time: slot.time,
-        log: slot.log,
-        isToday: isToday,
-        selectedDate: selectedDate,
-        onMarkTaken: () => onMarkTaken(slot.medication.id, slot.time),
-        onTap: () {
-          showDialog(
-            context: context,
-            builder: (context) => _MedicationDetailDialog(
-              medication: slot.medication,
-              time: slot.time,
-              isTaken: isTaken,
-              onTake: () {
-                Navigator.pop(context);
-                onMarkTaken(slot.medication.id, slot.time);
-              },
-              onEdit: () {
-                Navigator.pop(context);
-                onEdit(slot.medication);
-              },
-              onDelete: () {
-                Navigator.pop(context);
-                onDelete(slot.medication);
-              },
-              onArchive: () {
-                Navigator.pop(context);
-                onArchive(slot.medication);
-              },
-              onComplete: () {
-                Navigator.pop(context);
-                onComplete(slot.medication);
-              },
-              onRestore: () {
-                Navigator.pop(context);
-                onRestore(slot.medication);
-              },
-            ),
-          );
-        },
-      ));
+      children.add(
+        _MedicationTimeSlot(
+          medication: slot.medication,
+          time: slot.time,
+          log: slot.log,
+          isToday: isToday,
+          selectedDate: selectedDate,
+          onMarkTaken: () => onMarkTaken(slot.medication.id, slot.time),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (context) => _MedicationDetailDialog(
+                medication: slot.medication,
+                time: slot.time,
+                isTaken: isTaken,
+                onTake: () {
+                  Navigator.pop(context);
+                  onMarkTaken(slot.medication.id, slot.time);
+                },
+                onEdit: () {
+                  Navigator.pop(context);
+                  onEdit(slot.medication);
+                },
+                onDelete: () {
+                  Navigator.pop(context);
+                  onDelete(slot.medication);
+                },
+                onArchive: () {
+                  Navigator.pop(context);
+                  onArchive(slot.medication);
+                },
+                onComplete: () {
+                  Navigator.pop(context);
+                  onComplete(slot.medication);
+                },
+                onRestore: () {
+                  Navigator.pop(context);
+                  onRestore(slot.medication);
+                },
+              ),
+            );
+          },
+        ),
+      );
       children.add(const SizedBox(height: 8));
     }
 
@@ -927,7 +1123,11 @@ class _PrnSection extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(
             'По требованию',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
         ),
         ...prn.map((med) {
@@ -976,34 +1176,59 @@ class _PrnSection extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      width: 44, height: 44,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: Color(med.color).withAlpha(30),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(MedicationIcons.fromCodePoint(med.icon), color: Color(med.color), size: 24),
+                      child: Icon(
+                        MedicationIcons.fromCodePoint(med.icon),
+                        color: Color(med.color),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(med.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                          Text(
+                            med.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
                           const SizedBox(height: 2),
-                          Text('${med.dosageValue} ${med.dosageUnit}', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                          Text(
+                            '${med.dosageValue} ${med.dosageUnit}',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     if (takenCount > 0)
                       Chip(
-                        avatar: Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
-                        label: Text(takenCount > 1 ? 'Принято x$takenCount' : 'Принято', style: const TextStyle(fontSize: 12)),
+                        avatar: Icon(
+                          FontAwesome.circle_check,
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        ),
+                        label: Text(
+                          takenCount > 1 ? 'Принято x$takenCount' : 'Принято',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         visualDensity: VisualDensity.compact,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         padding: EdgeInsets.zero,
                         labelPadding: const EdgeInsets.only(right: 4),
-                        backgroundColor: theme.colorScheme.primary.withAlpha(25),
+                        backgroundColor: theme.colorScheme.primary.withAlpha(
+                          25,
+                        ),
                         side: BorderSide.none,
                       ),
                   ],
@@ -1040,14 +1265,21 @@ class _MedicationTimeSlot extends StatelessWidget {
     if (log?.status == 'taken') return false;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final selectedDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    final selectedDay = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
     if (selectedDay.isAfter(today)) return false;
     if (selectedDay.isBefore(today)) return true;
     if (time == null) return false;
     final parts = time!.split(':');
     final slotTime = DateTime(
-      now.year, now.month, now.day,
-      int.parse(parts[0]), int.parse(parts[1]),
+      now.year,
+      now.month,
+      now.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
     );
     return slotTime.isBefore(now);
   }
@@ -1132,10 +1364,7 @@ class _StatusChip extends StatelessWidget {
   final MedicationLogsTableData? log;
   final bool isPast;
 
-  const _StatusChip({
-    required this.log,
-    required this.isPast,
-  });
+  const _StatusChip({required this.log, required this.isPast});
 
   @override
   Widget build(BuildContext context) {
@@ -1201,7 +1430,8 @@ class _MedicationDetailDialog extends StatefulWidget {
   });
 
   @override
-  State<_MedicationDetailDialog> createState() => _MedicationDetailDialogState();
+  State<_MedicationDetailDialog> createState() =>
+      _MedicationDetailDialogState();
 }
 
 class _MedicationDetailDialogState extends State<_MedicationDetailDialog> {
@@ -1271,7 +1501,8 @@ class _MedicationDetailDialogState extends State<_MedicationDetailDialog> {
               ),
             ],
           ),
-          if (widget.medication.notes != null && widget.medication.notes!.isNotEmpty) ...[
+          if (widget.medication.notes != null &&
+              widget.medication.notes!.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(
               widget.medication.notes!,
@@ -1286,28 +1517,28 @@ class _MedicationDetailDialogState extends State<_MedicationDetailDialog> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _DialogIconButton(
-                icon: Icons.edit_outlined,
+                icon: FontAwesome.pen_to_square,
                 tooltip: 'Изменить',
                 onTap: widget.onEdit,
               ),
               _DialogIconButton(
-                icon: Icons.archive_outlined,
+                icon: Bootstrap.archive,
                 tooltip: 'Архив',
                 onTap: widget.onArchive,
               ),
               widget.medication.isCompleted
                   ? _DialogIconButton(
-                      icon: Icons.restart_alt,
+                      icon: IonIcons.arrow_redo,
                       tooltip: 'Возобновить',
                       onTap: widget.onRestore,
                     )
                   : _DialogIconButton(
-                      icon: Icons.check_circle_outline,
+                      icon: FontAwesome.circle_check,
                       tooltip: 'Завершить',
                       onTap: widget.onComplete,
                     ),
               _DialogIconButton(
-                icon: Icons.delete_outline,
+                icon: FontAwesome.trash_can,
                 tooltip: 'Удалить',
                 onTap: widget.onDelete,
                 color: Colors.red,
@@ -1319,7 +1550,7 @@ class _MedicationDetailDialogState extends State<_MedicationDetailDialog> {
             children: [
               if (widget.time != null)
                 IconButton(
-                  icon: const Icon(Icons.access_time, size: 20),
+                  icon: const Icon(FontAwesome.clock, size: 20),
                   onPressed: widget.onEdit,
                   tooltip: 'Изменить время',
                 ),
@@ -1340,9 +1571,11 @@ class _MedicationDetailDialogState extends State<_MedicationDetailDialog> {
                   widget.onTake();
                 },
                 icon: _isTaken && widget.time != null
-                    ? const Icon(Icons.check_circle, size: 20)
-                    : const Icon(Icons.check_circle_outline, size: 20),
-                label: Text(_isTaken && widget.time != null ? 'Принято' : 'Принять'),
+                    ? const Icon(FontAwesome.circle_check, size: 20)
+                    : const Icon(FontAwesome.circle_check, size: 20),
+                label: Text(
+                  _isTaken && widget.time != null ? 'Принято' : 'Принять',
+                ),
               ),
             ],
           ),

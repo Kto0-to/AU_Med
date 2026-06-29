@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:icon_plus/icon_plus.dart';
 
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
@@ -149,28 +150,28 @@ class _EditLogScreenState extends ConsumerState<EditLogScreen> {
                           children: [
                             _StatusChip(
                               label: 'Scheduled',
-                              icon: Icons.schedule,
+                              icon: FontAwesome.clock,
                               color: Colors.grey,
                               isSelected: _status == 'scheduled',
                               onTap: () => setState(() => _status = 'scheduled'),
                             ),
                             _StatusChip(
                               label: 'Taken',
-                              icon: Icons.check_circle,
+                              icon: FontAwesome.circle_check,
                               color: AppColors.taken,
                               isSelected: _status == 'taken',
                               onTap: () => setState(() => _status = 'taken'),
                             ),
                             _StatusChip(
                               label: 'Skipped',
-                              icon: Icons.skip_next,
+                              icon: EvaIcons.skip_forward_outline,
                               color: AppColors.skipped,
                               isSelected: _status == 'skipped',
                               onTap: () => setState(() => _status = 'skipped'),
                             ),
                             _StatusChip(
                               label: 'Missed',
-                              icon: Icons.error_outline,
+                              icon: FontAwesome.circle_xmark,
                               color: AppColors.missed,
                               isSelected: _status == 'missed',
                               onTap: () => setState(() => _status = 'missed'),
@@ -203,7 +204,7 @@ class _EditLogScreenState extends ConsumerState<EditLogScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.access_time, size: 20),
+                                const Icon(FontAwesome.clock, size: 20),
                                 const SizedBox(width: 12),
                                 Text(
                                   _takenTime != null

@@ -23,6 +23,24 @@ final streakDaysProvider = FutureProvider<int>((ref) {
   return ref.read(statisticsDaoProvider).streakDays();
 });
 
+final streakDaysUpToProvider = FutureProvider.family<int, DateTime>((ref, date) {
+  return ref.read(statisticsDaoProvider).streakDaysUpTo(date);
+});
+
+final missedDaysProvider = FutureProvider<Set<DateTime>>((ref) {
+  final now = DateTime.now();
+  final monthAgo = now.subtract(const Duration(days: 30));
+  final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+  return ref.read(statisticsDaoProvider).missedDaysForPeriod(monthAgo, endOfDay);
+});
+
+final pendingDaysProvider = FutureProvider<Set<DateTime>>((ref) {
+  final now = DateTime.now();
+  final monthAgo = now.subtract(const Duration(days: 30));
+  final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+  return ref.read(statisticsDaoProvider).pendingDaysForPeriod(monthAgo, endOfDay);
+});
+
 final dailyLogsProvider = FutureProvider<Map<DateTime, List<bool>>>((ref) {
   final now = DateTime.now();
   final monthAgo = now.subtract(const Duration(days: 30));
