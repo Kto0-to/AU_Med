@@ -7,52 +7,50 @@ environment:
   sdk: ^3.12.2
 
 dependencies:
-  flutter:
-    sdk: flutter
-  flutter_localizations:
-    sdk: flutter
-
-  flutter_riverpod: ^3.3.2
-  riverpod_annotation: ^4.0.3
+  avatar_maker: ^1.7.0
+  awesome_snackbar_content: ^0.1.8
+  contribution_heatmap: ^0.5.3
+  day_night_themed_switcher: ^2.0.2
 
   drift: ^2.34.0
-  sqlite3_flutter_libs: ^0.6.0+eol
-  path_provider: ^2.1.5
-  path: ^1.9.1
+
+  fl_chart: ^1.2.0
+  flutter:
+    sdk: flutter
+
+  flutter_local_notifications: ^22.0.1
+  flutter_localizations:
+    sdk: flutter
+  flutter_longpress_preview: ^0.1.9
+
+  flutter_riverpod: ^3.3.2
+  flutter_svg: ^2.0.15
+  forui: ^0.23.0
 
   go_router: ^17.3.0
 
-  shadcn_flutter: ^0.0.52
-  forui: ^0.23.0
+  intl: ^0.20.2
+  json_annotation: ^4.9.0
   orient_ui: ^0.7.0
   icon_plus: ^0.1.1
-  day_night_themed_switcher: ^2.0.2
-  awesome_snackbar_content: ^0.1.8
-  contribution_heatmap: ^0.5.3
-  flutter_longpress_preview: ^0.1.9
-  avatar_maker: ^1.7.0
 
-  fl_chart: ^1.2.0
-
-  flutter_local_notifications: ^22.0.1
+  shadcn_flutter: ^0.0.52
+  shared_preferences: ^2.5.5
+  sqlite3_flutter_libs: ^0.6.0+eol
   timezone: ^0.11.0
   uuid: ^4.5.1
 
-  intl: ^0.20.2
-  flutter_svg: ^2.0.15
-  json_annotation: ^4.9.0
-  shared_preferences: ^2.5.5
-
   flutter_launcher_icons: ^0.14.4
+  path_provider: ^2.1.6
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^6.0.0
   build_runner: ^2.4.14
   drift_dev: ^2.34.0
-  riverpod_generator: ^4.0.4
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
   json_serializable: ^6.9.4
+  riverpod_generator: ^4.0.4
 
 flutter:
   uses-material-design: true
