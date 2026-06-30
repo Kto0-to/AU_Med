@@ -1,4 +1,6 @@
+# ============================
 # Miscellaneous
+# ============================
 *.class
 *.log
 *.pyc
@@ -12,18 +14,26 @@
 .swiftpm/
 migrate_working_dir/
 
+# ============================
 # IntelliJ related
+# ============================
 *.iml
 *.ipr
 *.iws
 .idea/
+*.tmp
+*.temp
+*.cache
+*.bak
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# ============================
+# VS Code
+# ============================
+.vscode/
 
+# ============================
 # Flutter/Dart/Pub related
+# ============================
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -43,3 +53,94 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ============================
+# AI-файлы (не отправляем в репозиторий)
+# ============================
+AGENTS.md
+.ignore
+.opencode/
+.aider*
+.continue/
+.metadata
+.cursor/
+.cursorignore
+CODEBUDDY.md
+*.ai.md
+
+# ============================
+# Секреты и переменные окружения
+# ============================
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+*.secret.*
+.private/
+
+# ============================
+# Временные файлы
+# ============================
+*.tmp
+*.temp
+*.cache
+*.bak
+*.orig
+
+# ============================
+# Логи
+# ============================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================
+# Системные файлы
+# ============================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# ============================
+# Сборка и зависимости (дополнительно)
+# ============================
+node_modules/
+dist/
+*.dSYM
+*.app
+*.ipa
+*.pdb
+*.ilk
+*.obj
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# ============================
+# Файлы тестов
+# ============================
+/test/.coverage/
+/.test/
+/test_results/
