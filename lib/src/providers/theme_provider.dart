@@ -29,40 +29,6 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
   }
 }
 
-final accentColorIndexProvider = NotifierProvider<AccentColorNotifier, int>(() {
-  return AccentColorNotifier();
-});
-
-class AccentColorNotifier extends Notifier<int> {
-  static const colors = [
-    Color(0xFF6B7280), // серый
-    Color(0xFF374151), // тёмно-серый
-    Color(0xFF3B82F6), // голубой
-    Color(0xFFE11D48), // розовый
-  ];
-
-  @override
-  int build() {
-    _load();
-    return 0;
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final index = prefs.getInt('accent_color_index');
-    if (index != null && index >= 0 && index < colors.length) {
-      state = index;
-    }
-  }
-
-  void setAccentIndex(int index) {
-    state = index.clamp(0, colors.length - 1);
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setInt('accent_color_index', state);
-    });
-  }
-}
-
 final notificationsEnabledProvider = NotifierProvider<NotificationsNotifier, bool>(() {
   return NotificationsNotifier();
 });

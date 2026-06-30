@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:au_med/src/theme/app_theme.dart';
+import 'package:au_med/src/theme/app_color_tokens.dart';
 
 int _dateKey(DateTime d) => d.year * 10000 + d.month * 100 + d.day;
 
@@ -98,9 +98,9 @@ class MedHeatmap extends StatelessWidget {
                                 ),
                               ],
                             )
-                          : Container(
+                              : Container(
                               decoration: BoxDecoration(
-                                color: _colorForValue(value),
+                                color: _colorForValue(value, context),
                                 borderRadius: BorderRadius.circular(cellRadius),
                               ),
                             ),
@@ -115,16 +115,17 @@ class MedHeatmap extends StatelessWidget {
     );
   }
 
-  Color _colorForValue(int value) {
+  Color _colorForValue(int value, BuildContext context) {
+    final colors = context.appColors;
     switch (value) {
       case 0:
         return Colors.grey.withAlpha(50);
       case 1:
-        return Colors.orange.withAlpha(125);
+        return colors.warning.withAlpha(125);
       case 2:
-        return Colors.green.withAlpha(125);
+        return colors.success.withAlpha(125);
       case 4:
-        return AppColors.missed.withAlpha(50);
+        return colors.error.withAlpha(50);
       default:
         return Colors.grey.withAlpha(50);
     }

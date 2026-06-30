@@ -7,7 +7,7 @@ import 'package:icon_plus/icon_plus.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/logs_provider.dart';
-import 'package:au_med/src/theme/app_theme.dart';
+import 'package:au_med/src/theme/app_color_tokens.dart';
 
 class EditLogScreen extends ConsumerStatefulWidget {
   final int medicationId;
@@ -158,21 +158,21 @@ class _EditLogScreenState extends ConsumerState<EditLogScreen> {
                             _StatusChip(
                               label: 'Taken',
                               icon: FontAwesome.circle_check,
-                              color: AppColors.taken,
+                              color: context.appColors.success,
                               isSelected: _status == 'taken',
                               onTap: () => setState(() => _status = 'taken'),
                             ),
                             _StatusChip(
                               label: 'Skipped',
                               icon: EvaIcons.skip_forward_outline,
-                              color: AppColors.skipped,
+                              color: context.appColors.warning,
                               isSelected: _status == 'skipped',
                               onTap: () => setState(() => _status = 'skipped'),
                             ),
                             _StatusChip(
                               label: 'Missed',
                               icon: FontAwesome.circle_xmark,
-                              color: AppColors.missed,
+                              color: context.appColors.error,
                               isSelected: _status == 'missed',
                               onTap: () => setState(() => _status = 'missed'),
                             ),

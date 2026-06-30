@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:icon_plus/icon_plus.dart';
 
 import 'package:au_med/src/providers/statistics_provider.dart';
-import 'package:au_med/src/theme/app_theme.dart';
+import 'package:au_med/src/theme/app_color_tokens.dart';
 import 'package:au_med/src/widgets/med_heatmap.dart';
 
 class StatisticsScreen extends ConsumerWidget {
@@ -74,7 +74,7 @@ class StatisticsScreen extends ConsumerWidget {
                         child: _AdherenceCard(
                           title: 'За неделю',
                           rate: weeklyAsync.value ?? 0,
-                          color: AppColors.taken,
+                          color: context.appColors.success,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -82,7 +82,7 @@ class StatisticsScreen extends ConsumerWidget {
                         child: _AdherenceCard(
                           title: 'За месяц',
                           rate: monthlyAsync.value ?? 0,
-                          color: AppColors.taken,
+                          color: context.appColors.success,
                         ),
                       ),
                     ],
@@ -296,7 +296,7 @@ class _HeatmapCard extends StatelessWidget {
               children: [
                 _HmLegend(color: Colors.grey.withAlpha(25), label: 'Нет'),
                 const SizedBox(width: 12),
-                _HmLegend(color: AppColors.missed.withAlpha(200), label: 'Пропущено'),
+                _HmLegend(color: context.appColors.error.withAlpha(200), label: 'Пропущено'),
                 const SizedBox(width: 12),
                 _HmLegend(color: Colors.orange.withAlpha(200), label: 'Часть'),
                 const SizedBox(width: 12),

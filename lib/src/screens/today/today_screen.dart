@@ -13,6 +13,7 @@ import 'package:au_med/src/providers/medications_provider.dart';
 import 'package:au_med/src/providers/logs_provider.dart';
 import 'package:au_med/src/providers/statistics_provider.dart';
 import 'package:au_med/src/database/database.dart';
+import 'package:au_med/src/theme/app_color_tokens.dart';
 import 'package:au_med/src/theme/app_theme.dart';
 import 'package:au_med/src/services/notification_service.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' show LucideIcons;
@@ -764,12 +765,18 @@ class _DayProgressPainter extends CustomPainter {
   final int skipped;
   final int missed;
   final int pending;
+  final Color takenColor;
+  final Color skippedColor;
+  final Color missedColor;
 
   _DayProgressPainter({
     required this.taken,
     required this.skipped,
     required this.missed,
     required this.pending,
+    required this.takenColor,
+    required this.skippedColor,
+    required this.missedColor,
   });
 
   int get _total => taken + skipped + missed + pending;
@@ -810,10 +817,9 @@ class _DayProgressPainter extends CustomPainter {
       );
       startAngle += gapAngle + sweep + gapAngle;
     }
-//! color green
-    drawArc(taken, AppColors.taken);
-    drawArc(skipped, AppColors.skipped);
-    drawArc(missed, AppColors.missed);
+    drawArc(taken, takenColor);
+    drawArc(skipped, skippedColor);
+    drawArc(missed, missedColor);
     drawArc(pending, Colors.grey);
   }
 
@@ -822,7 +828,10 @@ class _DayProgressPainter extends CustomPainter {
       taken != old.taken ||
       skipped != old.skipped ||
       missed != old.missed ||
-      pending != old.pending;
+      pending != old.pending ||
+      takenColor != old.takenColor ||
+      skippedColor != old.skippedColor ||
+      missedColor != old.missedColor;
 }
 
 class _ProgressSummary extends StatelessWidget {
@@ -919,13 +928,16 @@ class _ProgressSummary extends StatelessWidget {
                   skipped: skipped,
                   missed: missed,
                   pending: pending,
+                  takenColor: context.appColors.success,
+                  skippedColor: context.appColors.warning,
+                  missedColor: context.appColors.error,
                 ),
                 child: Center(
                   child: Text(
                     total > 0 ? '${(taken * 100 ~/ total)}%' : '0%',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: total == 0 ? Colors.grey : AppColors.taken, //!color
+                      color: total == 0 ? Colors.grey : context.appColors.success,
                       fontSize: 13,
                     ),
                   ),
@@ -1394,12 +1406,12 @@ class _StatusChip extends StatelessWidget {
     String label;
 
     if (log?.status == 'taken') {
-      bgColor = AppColors.taken.withAlpha(25);
-      textColor = AppColors.taken;
+      bgColor = context.appColors.successBg;
+      textColor = context.appColors.success;
       label = 'Принято';
     } else if (isPast || log?.status == 'missed') {
-      bgColor = AppColors.missed.withAlpha(25);
-      textColor = AppColors.missed;
+      bgColor = context.appColors.errorBg;
+      textColor = context.appColors.error;
       label = 'Пропущено';
     } else {
       bgColor = Colors.grey.withAlpha(20);

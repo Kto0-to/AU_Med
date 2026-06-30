@@ -9,7 +9,7 @@ import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
 import 'package:au_med/src/providers/logs_provider.dart';
 import 'package:au_med/src/database/database.dart';
-import 'package:au_med/src/theme/app_theme.dart';
+import 'package:au_med/src/theme/app_color_tokens.dart';
 
 class DosageHistoryScreen extends ConsumerStatefulWidget {
   final int medicationId;
@@ -213,23 +213,16 @@ class _LogCard extends StatelessWidget {
     required this.onEdit,
   });
 
-  Color get _statusColor {
-    switch (log.status) {
-      case 'taken':
-        return AppColors.taken;
-      case 'missed':
-        return AppColors.missed;
-      case 'skipped':
-        return AppColors.skipped;
-      default:
-        return AppColors.scheduled;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final scheduled = DateTime.parse(log.scheduledTime);
     final theme = Theme.of(context);
+    final statusColor = switch (log.status) {
+      'taken' => context.appColors.success,
+      'missed' => context.appColors.error,
+      'skipped' => context.appColors.warning,
+      _ => context.appColors.info,
+    };
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -244,7 +237,7 @@ class _LogCard extends StatelessWidget {
                 width: 8,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: _statusColor,
+                  color: statusColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -265,13 +258,13 @@ class _LogCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _statusColor.withAlpha(25),
+                            color: statusColor.withAlpha(25),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             log.status.toUpperCase(),
                             style: TextStyle(
-                              color: _statusColor,
+                              color: statusColor,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),

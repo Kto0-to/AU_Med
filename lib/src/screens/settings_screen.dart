@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:icon_plus/icon_plus.dart';
 
 import 'package:day_night_themed_switcher/day_night_themed_switcher.dart';
 
@@ -46,38 +45,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  const Text('Акценты',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: List.generate(AccentColorNotifier.colors.length, (i) {
-                      final c = AccentColorNotifier.colors[i];
-                      final accentIndex = ref.watch(accentColorIndexProvider);
-                      final isSelected = accentIndex == i;
-                      return GestureDetector(
-                        onTap: () => ref.read(accentColorIndexProvider.notifier).setAccentIndex(i),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: c,
-                            shape: BoxShape.circle,
-                            border: isSelected
-                                ? Border.all(
-                                    color: theme.colorScheme.onSurface, width: 3)
-                                : null,
-                          ),
-                          child: isSelected
-                              ? const Icon(Bootstrap.check_lg, color: Colors.white, size: 25)
-                              : null,
-                        ),
-                      );
-                    }),
-                  ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),

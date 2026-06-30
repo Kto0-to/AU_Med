@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:icon_plus/icon_plus.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' show LucideIcons;
+
+import 'app_color_tokens.dart';
+import 'app_radius.dart';
 
 class AppColors {
   static const List<int> medicationColors = [
@@ -20,11 +23,6 @@ class AppColors {
 
   static Color getMedicationColor(int index) =>
       Color(medicationColors[index % medicationColors.length]);
-
-  static const taken = Color(0xFF9ABC04);
-  static const missed = Color(0xFFF44336);
-  static const skipped = Color(0xFFFF9800);
-  static const scheduled = Color(0xFF9E9E9E);
 }
 
 class MedicationIcons {
@@ -63,65 +61,147 @@ class MedicationIcons {
 }
 
 class AppTheme {
-  static shadcn.ThemeData lightTheme = shadcn.ThemeData(
-    colorScheme: shadcn.ColorScheme(
-      brightness: Brightness.light,
-      background: const Color(0xFFF8FAFC),
-      foreground: const Color(0xFF0F172A),
-      primary: const Color(0xFF2563EB),
-      primaryForeground: const Color(0xFFFFFFFF),
-      secondary: const Color(0xFFF1F5F9),
-      secondaryForeground: const Color(0xFF1E293B),
-      muted: const Color(0xFFF1F5F9),
-      mutedForeground: const Color(0xFF64748B),
-      accent: const Color(0xFFF1F5F9),
-      accentForeground: const Color(0xFF1E293B),
-      destructive: const Color(0xFFEF4444),
-      destructiveForeground: const Color(0xFFF8FAFC),
-      border: const Color(0xFFE2E8F0),
-      input: const Color(0xFFE2E8F0),
-      ring: const Color(0xFF2563EB),
-      card: const Color(0xFFFFFFFF),
-      cardForeground: const Color(0xFF0F172A),
-      popover: const Color(0xFFFFFFFF),
-      popoverForeground: const Color(0xFF0F172A),
-      chart1: const Color(0xFF2563EB),
-      chart2: const Color(0xFF16A34A),
-      chart3: const Color(0xFFF59E0B),
-      chart4: const Color(0xFFEF4444),
-      chart5: const Color(0xFF8B5CF6),
-    ),
-    radius: 12.0,
-  );
+  AppTheme._();
 
-  static shadcn.ThemeData darkTheme = shadcn.ThemeData.dark(
-    colorScheme: shadcn.ColorScheme(
+  static ThemeData light(Color accent) {
+    final tokens = AppColorTokens.light;
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      colorScheme: ColorScheme(
+        brightness: Brightness.light,
+        primary: accent,
+        onPrimary: Colors.white,
+        secondary: tokens.accentSoft,
+        onSecondary: tokens.accentStrong,
+        surface: tokens.screenBg,
+        onSurface: tokens.textPrimary,
+        error: tokens.error,
+        onError: Colors.white,
+        surfaceContainerHighest: tokens.sectionBg,
+        onSurfaceVariant: tokens.textSecondary,
+        outline: tokens.border,
+        outlineVariant: tokens.border,
+      ),
+      scaffoldBackgroundColor: tokens.screenBg,
+      extensions: [tokens],
+      cardTheme: CardThemeData(
+        color: tokens.cardBg,
+        elevation: 2,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.cardBorder,
+          side: BorderSide(color: tokens.border, width: 0.9),
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: tokens.screenBg,
+        foregroundColor: tokens.textPrimary,
+        surfaceTintColor: Colors.transparent,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: tokens.cardBg,
+        indicatorColor: accent.withAlpha(25),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: tokens.inputBg,
+        border: OutlineInputBorder(
+          borderRadius: AppRadius.inputBorder,
+          borderSide: BorderSide(color: tokens.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: AppRadius.inputBorder,
+          borderSide: BorderSide(color: tokens.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: AppRadius.inputBorder,
+          borderSide: const BorderSide(color: Color(0xFFFF8C69), width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: AppRadius.inputBorder,
+          borderSide: const BorderSide(color: Color(0xFFFF5252), width: 2),
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: accent,
+        foregroundColor: Colors.white,
+      ),
+      dividerTheme: DividerThemeData(
+        color: tokens.border,
+        thickness: 0.5,
+      ),
+    );
+  }
+
+  static ThemeData dark(Color accent) {
+    final tokens = AppColorTokens.dark;
+    return ThemeData(
+      useMaterial3: true,
       brightness: Brightness.dark,
-      background: const Color(0xFF0F172A),
-      foreground: const Color(0xFFF8FAFC),
-      primary: const Color(0xFF3B82F6),
-      primaryForeground: const Color(0xFFFFFFFF),
-      secondary: const Color(0xFF1E293B),
-      secondaryForeground: const Color(0xFFF8FAFC),
-      muted: const Color(0xFF1E293B),
-      mutedForeground: const Color(0xFF94A3B8),
-      accent: const Color(0xFF1E293B),
-      accentForeground: const Color(0xFFF8FAFC),
-      destructive: const Color(0xFF7F1D1D),
-      destructiveForeground: const Color(0xFFF8FAFC),
-      border: const Color(0xFF334155),
-      input: const Color(0xFF334155),
-      ring: const Color(0xFF3B82F6),
-      card: const Color(0xFF1E293B),
-      cardForeground: const Color(0xFFF8FAFC),
-      popover: const Color(0xFF1E293B),
-      popoverForeground: const Color(0xFFF8FAFC),
-      chart1: const Color(0xFF3B82F6),
-      chart2: const Color(0xFF22C55E),
-      chart3: const Color(0xFFF59E0B),
-      chart4: const Color(0xFFEF4444),
-      chart5: const Color(0xFFA78BFA),
-    ),
-    radius: 12.0,
-  );
+      colorScheme: ColorScheme(
+        brightness: Brightness.dark,
+        primary: Color.lerp(accent, Colors.white, 0.3)!,
+        onPrimary: Colors.white,
+        secondary: tokens.accentSoft,
+        onSecondary: tokens.textPrimary,
+        surface: tokens.screenBg,
+        onSurface: tokens.textPrimary,
+        error: tokens.error,
+        onError: Colors.white,
+        surfaceContainerHighest: tokens.sectionBg,
+        onSurfaceVariant: tokens.textSecondary,
+        outline: tokens.border,
+        outlineVariant: tokens.border,
+      ),
+      scaffoldBackgroundColor: tokens.screenBg,
+      extensions: [tokens],
+      cardTheme: CardThemeData(
+        color: tokens.cardBg,
+        elevation: 2,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.cardBorder,
+          side: BorderSide(color: tokens.border, width: 0.9),
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: tokens.screenBg,
+        foregroundColor: tokens.textPrimary,
+        surfaceTintColor: Colors.transparent,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: tokens.cardBg,
+        indicatorColor: accent.withAlpha(25),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: tokens.inputBg,
+        border: OutlineInputBorder(
+          borderRadius: AppRadius.inputBorder,
+          borderSide: BorderSide(color: tokens.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: AppRadius.inputBorder,
+          borderSide: BorderSide(color: tokens.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: AppRadius.inputBorder,
+          borderSide: BorderSide(color: tokens.accent, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: AppRadius.inputBorder,
+          borderSide: BorderSide(color: tokens.error, width: 2),
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: Color.lerp(accent, Colors.white, 0.3)!,
+        foregroundColor: Colors.white,
+      ),
+      dividerTheme: DividerThemeData(
+        color: tokens.border,
+        thickness: 0.5,
+      ),
+    );
+  }
 }

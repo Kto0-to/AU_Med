@@ -10,6 +10,7 @@ import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
 import 'package:au_med/src/providers/logs_provider.dart';
 import 'package:au_med/src/providers/statistics_provider.dart';
+import 'package:au_med/src/theme/app_color_tokens.dart';
 import 'package:au_med/src/theme/app_theme.dart';
 import 'package:au_med/src/services/notification_service.dart';
 
@@ -268,13 +269,13 @@ class _MedicationListCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.taken.withAlpha(25),
+                            color: context.appColors.successBg,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Text(
+                          child: Text(
                             'ЗАВЕРШЕНО',
                             style: TextStyle(
-                              color: AppColors.taken,
+                              color: context.appColors.success,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
