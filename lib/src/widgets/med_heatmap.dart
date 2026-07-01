@@ -1,134 +1,179 @@
 import 'package:flutter/material.dart';
 
+import 'package:au_med/src/shared/day_status.dart';
 import 'package:au_med/src/theme/app_color_tokens.dart';
 
-int _dateKey(DateTime d) => d.year * 10000 + d.month * 100 + d.day;
-
 class MedHeatmap extends StatelessWidget {
-  final List<({DateTime date, int value})> entries;
-  final DateTime minDate;
-  final DateTime maxDate;
+  final List<HeatmapDayData> entries;
   final double? cellSize;
   final double cellSpacing;
   final double cellRadius;
-  final void Function(DateTime date, int value)? onCellTap;
+  final void Function(DateTime date, DayStatus status)? onCellTap;
 
   const MedHeatmap({
     super.key,
     required this.entries,
-    required this.minDate,
-    required this.maxDate,
     this.cellSize,
     this.cellSpacing = 3,
     this.cellRadius = 3,
     this.onCellTap,
   });
 
+  static const _dowLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  static const double _labelWidth = 22;
+
   @override
   Widget build(BuildContext context) {
-    final entryMap = <int, int>{};
-    for (final e in entries) {
-      entryMap[_dateKey(e.date)] = e.value;
-    }
-
-    final startKey = _dateKey(minDate);
-    final endKey = _dateKey(maxDate);
-    final totalDays = endKey - startKey + 1;
-    final weeks = (totalDays / 7).ceil();
+    final weeks = entries.length ~/ 7;
+    if (weeks == 0) return const SizedBox.shrink();
 
     if (cellSize != null) {
-      return _build(cellSize!, entryMap, startKey, weeks, context);
+      return _build(cellSize!, weeks, context);
     }
 
     return LayoutBuilder(builder: (context, constraints) {
-      final availableWidth = constraints.maxWidth;
-      final cs = (availableWidth - 6 * cellSpacing) / 7;
-      return _build(cs.clamp(8.0, 48.0), entryMap, startKey, weeks, context);
+      final labelAndSpacing = _labelWidth + cellSpacing;
+      final availableWidth = constraints.maxWidth - labelAndSpacing;
+      final cs = (availableWidth - (weeks - 1) * cellSpacing) / weeks;
+      return _build(cs.clamp(8.0, 48.0), weeks, context);
     });
   }
 
-  Widget _build(
-    double cs,
-    Map<int, int> entryMap,
-    int startKey,
-    int weeks,
-    BuildContext context,
-  ) {
-    return SizedBox(
-      height: weeks * cs + (weeks - 1) * cellSpacing,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: List.generate(7, (dow) {
-          return Padding(
-            padding: EdgeInsets.only(right: dow < 6 ? cellSpacing : 0),
-            child: Column(
-              children: List.generate(weeks, (week) {
-                final dayOffset = week * 7 + dow;
-                final date = minDate.add(Duration(days: dayOffset));
-                final key = _dateKey(date);
-                final value = entryMap[key] ?? 0;
+  Widget _build(double cs, int weeks, BuildContext context) {
+    final colors = context.appColors;
+    final totalWidth = _labelWidth + cellSpacing + weeks * cs + (weeks - 1) * cellSpacing;
+    final totalHeight = 7 * cs + 6 * cellSpacing;
 
-                return Padding(
-                  padding: EdgeInsets.only(bottom: week < weeks - 1 ? cellSpacing : 0),
-                  child: GestureDetector(
-                    onTap: onCellTap != null ? () => onCellTap!(date, value) : null,
-                    child: SizedBox(
-                      width: cs,
-                      height: cs,
-                      child: value == 3
-                          ? Stack(
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.withAlpha(45),
-                                    borderRadius: BorderRadius.circular(cellRadius),
-                                  ),
-                                ),
-                                Positioned(
-                                  right: 0.5,
-                                  top: 0.5,
-                                  child: Container(
-                                    width: 5,
-                                    height: 5,
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.withAlpha(150),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                              : Container(
-                              decoration: BoxDecoration(
-                                color: _colorForValue(value, context),
-                                borderRadius: BorderRadius.circular(cellRadius),
-                              ),
-                            ),
+    return SizedBox(
+      width: totalWidth,
+      height: totalHeight + 20,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(7, (di) {
+                final label = _dowLabels[di];
+                return SizedBox(
+                  width: _labelWidth,
+                  height: cs + cellSpacing,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: di < 6 ? cellSpacing * 0.5 : 0),
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: context.appColors.textTertiary,
+                        height: 1,
+                      ),
                     ),
                   ),
                 );
               }),
             ),
-          );
-        }),
+            SizedBox(width: cellSpacing),
+            Row(
+              spacing: cellSpacing,
+              children: List.generate(weeks, (wi) {
+                final weekStart = wi * 7;
+                return Column(
+                  spacing: cellSpacing,
+                  children: List.generate(7, (di) {
+                    final idx = weekStart + di;
+                    if (idx >= entries.length) return SizedBox.square(dimension: cs);
+                    final dayData = entries[idx];
+                    return GestureDetector(
+                      onTap: onCellTap != null
+                          ? () => onCellTap!(dayData.date, dayData.status)
+                          : null,
+                      child: _HeatmapCell(
+                        dayData: dayData,
+                        size: cs,
+                        radius: cellRadius,
+                        colors: colors,
+                      ),
+                    );
+                  }),
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Color _colorForValue(int value, BuildContext context) {
-    final colors = context.appColors;
-    switch (value) {
-      case 0:
-        return Colors.grey.withAlpha(50);
-      case 1:
-        return colors.warning.withAlpha(125);
-      case 2:
-        return colors.success.withAlpha(125);
-      case 4:
-        return colors.error.withAlpha(50);
-      default:
-        return Colors.grey.withAlpha(50);
+class _HeatmapCell extends StatelessWidget {
+  final HeatmapDayData dayData;
+  final double size;
+  final double radius;
+  final AppColorTokens colors;
+
+  const _HeatmapCell({
+    required this.dayData,
+    required this.size,
+    required this.radius,
+    required this.colors,
+  });
+
+  Color get _fillColor {
+    switch (dayData.status) {
+      case DayStatus.future:
+        return colors.textTertiary;
+      case DayStatus.empty:
+        return colors.textTertiary.withAlpha(60);
+      case DayStatus.completed:
+        return colors.success;
+      case DayStatus.partial:
+        return colors.warning;
+      case DayStatus.missed:
+        return colors.error;
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    if (dayData.hasPrn) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: _fillColor,
+                borderRadius: BorderRadius.circular(radius),
+              ),
+            ),
+            Positioned(
+              right: 1,
+              top: 1,
+              child: Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: colors.info,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: _fillColor,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
 }

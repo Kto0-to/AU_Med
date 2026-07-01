@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:icon_plus/icon_plus.dart';
 
 import 'package:au_med/src/providers/statistics_provider.dart';
+import 'package:au_med/src/shared/day_status.dart';
 import 'package:au_med/src/theme/app_color_tokens.dart';
 import 'package:au_med/src/widgets/med_heatmap.dart';
 
@@ -14,18 +15,12 @@ class StatisticsScreen extends ConsumerWidget {
     final weeklyAsync = ref.watch(weeklyAdherenceProvider);
     final monthlyAsync = ref.watch(monthlyAdherenceProvider);
     final streakAsync = ref.watch(streakDaysProvider);
-    final dailyLogsAsync = ref.watch(dailyLogsProvider);
-    final prnDaysAsync = ref.watch(prnDaysLast30Provider);
-    final missedDaysAsync = ref.watch(missedDaysProvider);
-    final pendingDaysAsync = ref.watch(pendingDaysProvider);
+    final heatmapAsync = ref.watch(heatmapDataProvider);
 
     final allError = weeklyAsync.hasError ||
         monthlyAsync.hasError ||
         streakAsync.hasError ||
-        dailyLogsAsync.hasError ||
-        prnDaysAsync.hasError ||
-        missedDaysAsync.hasError ||
-        pendingDaysAsync.hasError;
+        heatmapAsync.hasError;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Статистика')),
@@ -34,9 +29,8 @@ class StatisticsScreen extends ConsumerWidget {
           ref.invalidate(weeklyAdherenceProvider);
           ref.invalidate(monthlyAdherenceProvider);
           ref.invalidate(streakDaysProvider);
-          ref.invalidate(dailyLogsProvider);
-          ref.invalidate(missedDaysProvider);
-          ref.invalidate(pendingDaysProvider);
+          ref.invalidate(heatmapDataProvider);
+          ref.invalidate(heatmapRangeProvider);
         },
         child: allError
             ? ListView(
@@ -90,18 +84,17 @@ class StatisticsScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   _StreakCard(streak: streakAsync.value ?? 0),
                   const SizedBox(height: 12),
-                  if (dailyLogsAsync.hasValue)
-                    _HeatmapCard(
-                      dailyLogs: dailyLogsAsync.value!,
-                      prnDays: prnDaysAsync.asData?.value ?? {},
-                      missedDays: missedDaysAsync.asData?.value ?? {},
-                      pendingDays: pendingDaysAsync.asData?.value ?? {},
-                    )
-                  else
-                    const Card(child: Padding(
+                  heatmapAsync.when(
+                    data: (data) => _HeatmapCard(heatmapData: data),
+                    loading: () => const Card(child: Padding(
                       padding: EdgeInsets.all(48),
                       child: Center(child: CircularProgressIndicator()),
                     )),
+                    error: (_, _) => const Card(child: Padding(
+                      padding: EdgeInsets.all(48),
+                      child: Center(child: Text('Ошибка загрузки тепловой карты')),
+                    )),
+                  ),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -203,53 +196,15 @@ class _StreakCard extends StatelessWidget {
   }
 }
 
-class _HeatmapCard extends StatelessWidget {
-  final Map<DateTime, List<bool>> dailyLogs;
-  final Set<DateTime> prnDays;
-  final Set<DateTime> missedDays;
-  final Set<DateTime> pendingDays;
-  const _HeatmapCard({
-    required this.dailyLogs,
-    required this.prnDays,
-    required this.missedDays,
-    required this.pendingDays,
-  });
+class _HeatmapCard extends ConsumerWidget {
+  final List<HeatmapDayData> heatmapData;
+
+  const _HeatmapCard({required this.heatmapData});
 
   @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final monthStart = DateTime(now.year, now.month, 1);
-    final monthEnd = DateTime(now.year, now.month + 1, 0);
-    final scheduledEntries = dailyLogs.entries
-        .where((e) =>
-            !e.key.isBefore(monthStart) && !e.key.isAfter(monthEnd))
-        .map((e) {
-      final list = e.value;
-      final takenCount = list.where((t) => t).length;
-      final totalCount = list.length;
-      final hasPending = pendingDays.contains(e.key);
-      int value;
-      if (takenCount == totalCount && !hasPending) {
-        value = 2;
-      } else if (missedDays.contains(e.key)) {
-        value = 4;
-      } else if (hasPending) {
-        value = 0;
-      } else if (takenCount == 0) {
-        value = 0;
-      } else {
-        value = 1;
-      }
-      return (date: e.key, value: value);
-    }).toList();
-
-    final scheduledKeys = scheduledEntries.map((e) => e.date).toSet();
-    final prnOnly = prnDays.where((d) =>
-        !d.isBefore(monthStart) && !d.isAfter(monthEnd) && !scheduledKeys.contains(d));
-    final entries = [
-      ...scheduledEntries,
-      for (final d in prnOnly) (date: d, value: 3),
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final range = ref.watch(heatmapRangeProvider);
+    final colors = context.appColors;
 
     return Card(
       child: Padding(
@@ -257,96 +212,73 @@ class _HeatmapCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Тепловая карта',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
-            Center(child: MedHeatmap(
-              entries: entries,
-              minDate: monthStart,
-              maxDate: monthEnd,
-              cellSpacing: 3,
-              cellRadius: 3,
-              onCellTap: (date, value) {
-                final formatted = '${date.day}.${date.month}';
-                String status;
-                if (value == 4) {
-                  status = 'пропущено всё';
-                } else if (value == 0) {
-                  status = 'не принято';
-                } else if (value == 1) {
-                  status = 'частично';
-                } else if (value == 3) {
-                  status = 'по требованию';
-                } else {
-                  status = 'полностью';
-                }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('$formatted — $status'),
-                    duration: const Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                    margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Тепловая карта',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(value: 30, label: Text('30')),
+                    ButtonSegment(value: 60, label: Text('60')),
+                    ButtonSegment(value: 90, label: Text('90')),
+                  ],
+                  selected: {range},
+                  onSelectionChanged: (v) =>
+                      ref.read(heatmapRangeProvider.notifier).setRange(v.first),
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                );
-              },
-            )),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: MedHeatmap(
+                entries: heatmapData,
+                cellSpacing: 3,
+                cellRadius: 3,
+                onCellTap: (date, status) {
+                  final formatted = '${date.day}.${date.month}';
+                  final labels = {
+                    DayStatus.future: 'ожидание',
+                    DayStatus.empty: 'нет приёма',
+                    DayStatus.completed: 'полностью',
+                    DayStatus.partial: 'частично',
+                    DayStatus.missed: 'пропущено всё',
+                  };
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$formatted — ${labels[status] ?? ''}'),
+                      duration: const Duration(seconds: 1),
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
+                    ),
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _HmLegend(color: Colors.grey.withAlpha(25), label: 'Нет'),
-                const SizedBox(width: 12),
-                _HmLegend(color: context.appColors.error.withAlpha(200), label: 'Пропущено'),
-                const SizedBox(width: 12),
-                _HmLegend(color: Colors.orange.withAlpha(200), label: 'Часть'),
-                const SizedBox(width: 12),
-                _HmLegend(color: Colors.green.withAlpha(200), label: 'Всё'),
-                const SizedBox(width: 12),
-                _HmPrnLegend(),
+                _HmLegend(color: colors.textTertiary.withAlpha(60), label: 'Нет'),
+                const SizedBox(width: 8),
+                _HmLegend(color: colors.error, label: 'Пропущено'),
+                const SizedBox(width: 8),
+                _HmLegend(color: colors.warning, label: 'Часть'),
+                const SizedBox(width: 8),
+                _HmLegend(color: colors.success, label: 'Всё'),
+                const SizedBox(width: 8),
+                _HmLegend(color: colors.textTertiary, label: 'Ожидание'),
+                const SizedBox(width: 8),
+                _HmDotLegend(color: colors.info, label: 'PRN'),
               ],
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _HmPrnLegend extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 10,
-          height: 10,
-          child: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.withAlpha(45),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Positioned(
-                right: 0.5,
-                top: 0.5,
-                child: Container(
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.green.withAlpha(150),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text('PRN', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-      ],
     );
   }
 }
@@ -367,6 +299,41 @@ class _HmLegend extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+      ],
+    );
+  }
+}
+
+class _HmDotLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _HmDotLegend({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+          ),
+          child: Align(
+            alignment: Alignment.topRight,
+            child: Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 4),

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:au_med/src/providers/database_provider.dart';
+import 'package:au_med/src/shared/day_status.dart';
 
 final weeklyAdherenceProvider = FutureProvider<double>((ref) {
   final now = DateTime.now();
@@ -72,4 +74,83 @@ final todayTotalCountProvider = FutureProvider<int>((ref) {
   final dayStart = DateTime(now.year, now.month, now.day);
   final dayEnd = dayStart.add(const Duration(days: 1));
   return ref.read(statisticsDaoProvider).totalLogsForPeriod(dayStart, dayEnd);
+});
+
+// ── Heatmap ──
+
+DateTime _previousMonday(DateTime date) {
+  final d = DateTime(date.year, date.month, date.day);
+  return d.subtract(Duration(days: (d.weekday - DateTime.monday) % 7));
+}
+
+DateTime _nextSunday(DateTime date) {
+  final d = DateTime(date.year, date.month, date.day);
+  return d.add(Duration(days: (DateTime.sunday - d.weekday) % 7));
+}
+
+DayStatus _computeDayStatus(DateTime date, DateTime today,
+    ({int total, int taken, int missed, int pending})? entry) {
+  if (date.isAfter(today)) return DayStatus.future;
+  if (entry == null) return DayStatus.empty;
+  if (entry.taken == entry.total) return DayStatus.completed;
+  if (entry.missed == entry.total) return DayStatus.missed;
+  return DayStatus.partial;
+}
+
+List<HeatmapDayData> _buildHeatmapData(
+  DateTime start,
+  DateTime end,
+  Map<DateTime, ({int total, int taken, int missed, int pending})> scheduleData,
+  Set<DateTime> prnDays,
+  DateTime today,
+) {
+  final result = <HeatmapDayData>[];
+  var current = start;
+  while (!current.isAfter(end)) {
+    result.add(HeatmapDayData(
+      date: current,
+      status: _computeDayStatus(current, today, scheduleData[current]),
+      hasPrn: prnDays.contains(current),
+    ));
+    current = current.add(const Duration(days: 1));
+  }
+  return result;
+}
+
+class HeatmapRangeNotifier extends Notifier<int> {
+  @override
+  int build() => 30;
+
+  void setRange(int range) => state = range;
+}
+
+final heatmapRangeProvider = NotifierProvider<HeatmapRangeNotifier, int>(HeatmapRangeNotifier.new);
+
+final heatmapDataProvider = FutureProvider<List<HeatmapDayData>>((ref) async {
+  final range = ref.watch(heatmapRangeProvider);
+  final dao = ref.read(statisticsDaoProvider);
+
+  final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  final rawStart = today.subtract(Duration(days: range - 1));
+  final start = _previousMonday(rawStart);
+  final end = _nextSunday(today);
+
+  final scheduleData = await dao.getHeatmapScheduleData(start, end);
+  final prnDays = await dao.prnDaysForPeriod(start, end);
+
+  return _buildHeatmapData(start, end, scheduleData, prnDays, today);
+});
+
+final weekHeatmapProvider =
+    FutureProvider.family<List<HeatmapDayData>, DateTime>((ref, date) async {
+  final dao = ref.read(statisticsDaoProvider);
+
+  final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  final monday = _previousMonday(date);
+  final sunday = _nextSunday(date);
+
+  final scheduleData = await dao.getHeatmapScheduleData(monday, sunday);
+  final prnDays = await dao.prnDaysForPeriod(monday, sunday);
+
+  return _buildHeatmapData(monday, sunday, scheduleData, prnDays, today);
 });

@@ -175,6 +175,40 @@ class StatisticsDao {
     return result;
   }
 
+  Future<Map<DateTime, ({int total, int taken, int missed, int pending})>>
+      getHeatmapScheduleData(DateTime start, DateTime end) async {
+    final rows = await (_db.select(_db.medicationLogsTable).join([
+      innerJoin(
+        _db.medicationsTable,
+        _db.medicationsTable.id.equalsExp(_db.medicationLogsTable.medicationId),
+      ),
+    ])
+      ..where(
+        _db.medicationLogsTable.scheduledTime.isBetweenValues(
+              start.toIso8601String(), end.toIso8601String()) &
+        _db.medicationsTable.times.equals('').not(),
+      ))
+      .get();
+
+    final result = <DateTime, ({int total, int taken, int missed, int pending})>{};
+    for (final row in rows) {
+      final log = row.readTable(_db.medicationLogsTable);
+      final day = DateTime.parse(log.scheduledTime);
+      final dayKey = DateTime(day.year, day.month, day.day);
+      final current = result.putIfAbsent(
+        dayKey,
+        () => (total: 0, taken: 0, missed: 0, pending: 0),
+      );
+      result[dayKey] = (
+        total: current.total + 1,
+        taken: current.taken + (log.status == 'taken' ? 1 : 0),
+        missed: current.missed + (log.status == 'missed' ? 1 : 0),
+        pending: current.pending + (log.status == 'scheduled' ? 1 : 0),
+      );
+    }
+    return result;
+  }
+
   Future<int> streakDays() async {
     return streakDaysUpTo(DateTime.now());
   }

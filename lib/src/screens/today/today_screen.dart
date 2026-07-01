@@ -12,6 +12,7 @@ import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
 import 'package:au_med/src/providers/logs_provider.dart';
 import 'package:au_med/src/providers/statistics_provider.dart';
+import 'package:au_med/src/shared/day_status.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/theme/app_color_tokens.dart';
 import 'package:au_med/src/theme/app_theme.dart';
@@ -139,10 +140,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     final medicationsAsync = ref.watch(activeMedicationsProvider);
     final logsAsync = ref.watch(logsForDateProvider(_normalizedDate));
     final streakAsync = ref.watch(streakDaysUpToProvider(_normalizedDate));
-    final dailyLogsAsync = ref.watch(dailyLogsProvider);
-    final prnDaysAsync = ref.watch(prnDaysLast30Provider);
-    final missedDaysAsync = ref.watch(missedDaysProvider);
-    final pendingDaysAsync = ref.watch(pendingDaysProvider);
+    final weekHeatmapAsync = ref.watch(weekHeatmapProvider(_normalizedDate));
 
     final dateKey = _normalizedDate.toIso8601String().substring(0, 10);
     if (_autoMarkKey != dateKey) {
@@ -153,9 +151,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         await dao.autoMarkMissedForDate(meds, _normalizedDate);
         ref.invalidate(logsForDateProvider(_normalizedDate));
         ref.invalidate(streakDaysUpToProvider(_normalizedDate));
-        ref.invalidate(dailyLogsProvider);
-        ref.invalidate(missedDaysProvider);
-        ref.invalidate(pendingDaysProvider);
+        ref.invalidate(weekHeatmapProvider(_normalizedDate));
       });
     }
 
@@ -334,13 +330,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              dailyLogsAsync.when(
-                data: (dailyLogs) => _WeekCalendar(
+              weekHeatmapAsync.when(
+                data: (data) => _WeekCalendar(
                   selectedDate: _normalizedDate,
-                  dailyLogs: dailyLogs,
-                  prnOnlyDays: prnDaysAsync.asData?.value ?? {},
-                  missedDays: missedDaysAsync.asData?.value ?? {},
-                  pendingDays: pendingDaysAsync.asData?.value ?? {},
+                  heatmapData: data,
                   onSelectDate: (date) => setState(() => _selectedDate = date),
                 ),
                 loading: () => const SizedBox.shrink(),
@@ -425,12 +418,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                 logsForDateProvider(_normalizedDate),
                               );
                               ref.invalidate(streakDaysUpToProvider(_normalizedDate));
-                              ref.invalidate(dailyLogsProvider);
-                              ref.invalidate(missedDaysProvider);
-                              ref.invalidate(pendingDaysProvider);
+                              ref.invalidate(weekHeatmapProvider(_normalizedDate));
                               ref.invalidate(weeklyAdherenceProvider);
                               ref.invalidate(monthlyAdherenceProvider);
                               ref.invalidate(statusDistributionProvider);
+                              ref.invalidate(heatmapDataProvider);
                             },
                             onEdit: (medication) => context.push(
                               '/medications/${medication.id}/edit',
@@ -489,8 +481,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                   logsForDateProvider(_normalizedDate),
                                 );
                                 ref.invalidate(streakDaysUpToProvider(_normalizedDate));
-                                ref.invalidate(dailyLogsProvider);
-                                ref.invalidate(missedDaysProvider);
+                                ref.invalidate(weekHeatmapProvider(_normalizedDate));
                                 ref.invalidate(weeklyAdherenceProvider);
                                 ref.invalidate(monthlyAdherenceProvider);
                                 ref.invalidate(statusDistributionProvider);
@@ -551,8 +542,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                   logsForDateProvider(_normalizedDate),
                                 );
                                 ref.invalidate(streakDaysUpToProvider(_normalizedDate));
-                                ref.invalidate(dailyLogsProvider);
-                                ref.invalidate(missedDaysProvider);
+                                ref.invalidate(weekHeatmapProvider(_normalizedDate));
                                 ref.invalidate(weeklyAdherenceProvider);
                                 ref.invalidate(monthlyAdherenceProvider);
                                 ref.invalidate(statusDistributionProvider);
@@ -632,30 +622,28 @@ class _DateNavigation extends StatelessWidget {
 
 class _WeekCalendar extends StatelessWidget {
   final DateTime selectedDate;
-  final Map<DateTime, List<bool>> dailyLogs;
-  final Set<DateTime> prnOnlyDays;
-  final Set<DateTime> missedDays;
-  final Set<DateTime> pendingDays;
+  final List<HeatmapDayData> heatmapData;
   final ValueChanged<DateTime> onSelectDate;
 
   const _WeekCalendar({
     required this.selectedDate,
-    required this.dailyLogs,
-    required this.prnOnlyDays,
-    required this.missedDays,
-    required this.pendingDays,
+    required this.heatmapData,
     required this.onSelectDate,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final colors = context.appColors;
     final weekStart = selectedDate.subtract(
-      Duration(days: selectedDate.weekday - 1),
+      Duration(days: (selectedDate.weekday - DateTime.monday) % 7),
     );
     final weekdayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+    final dayMap = <DateTime, HeatmapDayData>{};
+    for (final d in heatmapData) {
+      dayMap[DateTime(d.date.year, d.date.month, d.date.day)] = d;
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
@@ -666,31 +654,26 @@ class _WeekCalendar extends StatelessWidget {
           children: List.generate(7, (i) {
             final day = weekStart.add(Duration(days: i));
             final isSelected = day == selectedDate;
-            final isFuture = day.isAfter(today);
+            final dayData = dayMap[day];
 
-            final logs = dailyLogs[day];
             Color indicatorColor;
             bool hasColor = false;
 
-            if (logs != null && logs.isNotEmpty) {
-              final taken = logs.where((t) => t).length;
-              if (missedDays.contains(day) && !isFuture) {
-                indicatorColor = Colors.red.withAlpha(180);
-                hasColor = true;
-              } else if (pendingDays.contains(day)) {
-                indicatorColor = Colors.transparent;
-              } else if (taken == logs.length) {
-                indicatorColor = Colors.green.withAlpha(180);
-                hasColor = true;
-              } else if (taken > 0) {
-                indicatorColor = Colors.orange.withAlpha(150);
-                hasColor = true;
-              } else {
-                indicatorColor = Colors.transparent;
+            if (dayData != null) {
+              switch (dayData.status) {
+                case DayStatus.completed:
+                  indicatorColor = colors.success.withAlpha(180);
+                  hasColor = true;
+                case DayStatus.partial:
+                  indicatorColor = colors.warning.withAlpha(180);
+                  hasColor = true;
+                case DayStatus.missed:
+                  indicatorColor = colors.error.withAlpha(180);
+                  hasColor = true;
+                case DayStatus.empty:
+                case DayStatus.future:
+                  indicatorColor = Colors.transparent;
               }
-            } else if (prnOnlyDays.contains(day)) {
-              indicatorColor = Colors.green.withAlpha(180);
-              hasColor = true;
             } else {
               indicatorColor = Colors.transparent;
             }
@@ -741,12 +724,33 @@ class _WeekCalendar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: hasColor ? indicatorColor : Colors.transparent,
-                        shape: BoxShape.circle,
+                    SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: hasColor ? indicatorColor : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          if (dayData?.hasPrn == true)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                width: 4,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: colors.info,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
