@@ -6,13 +6,19 @@ version: 1.0.0+1
 environment:
   sdk: ^3.12.2
 
+hooks:
+  user_defines:
+    sqlite3:
+      source: source
+      path: third_party/sqlite/sqlite3.c
+
 dependencies:
   avatar_maker: ^1.7.0
   awesome_snackbar_content: ^0.1.8
   contribution_heatmap: ^0.5.3
   day_night_themed_switcher: ^2.0.2
 
-  drift: ^2.34.0
+  drift: ^2.34.1
 
   fl_chart: ^1.2.0
   flutter:
@@ -36,19 +42,18 @@ dependencies:
 
   shadcn_flutter: ^0.0.52
   shared_preferences: ^2.5.5
-  sqlite3_flutter_libs: ^0.6.0+eol
   timezone: ^0.11.0
   uuid: ^4.5.1
 
-  # flutter_launcher_icons: ^0.14.4
+  flutter_launcher_icons: ^0.14.4
   path_provider: ^2.1.6
 
-  babstrap_settings_screen: ^0.1.7
+  # babstrap_settings_screen: ^0.1.7
   fluentui_system_icons: ^1.1.273
   path: ^1.9.1
 
 dev_dependencies:
-  build_runner: ^2.4.14
+  build_runner: ^2.15.0
   drift_dev: ^2.34.0
   flutter_lints: ^6.0.0
   flutter_test:
@@ -63,7 +68,10 @@ flutter:
     - assets/images/
 
 
-flutter_icons:
+flutter_launcher_icons:
   image_path: 'assets/images/icon.png'
   android: true
   ios: true
+  adaptive_icon_background: '#000000'
+  adaptive_icon_foreground: 'assets/images/icon.png'
+  remove_alpha_ios: true

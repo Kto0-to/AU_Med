@@ -45,63 +45,66 @@ class MedHeatmap extends StatelessWidget {
     final totalHeight = 7 * cs + 6 * cellSpacing;
 
     return SizedBox(
-      width: totalWidth,
       height: totalHeight + 20,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(7, (di) {
-                final label = _dowLabels[di];
-                return SizedBox(
-                  width: _labelWidth,
-                  height: cs + cellSpacing,
-                  child: Padding(
-                    padding: EdgeInsets.only(top: di < 6 ? cellSpacing * 0.5 : 0),
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: context.appColors.textTertiary,
-                        height: 1,
+        child: SizedBox(
+          width: totalWidth,
+          height: totalHeight + 20,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(7, (di) {
+                  final label = _dowLabels[di];
+                  return SizedBox(
+                    width: _labelWidth,
+                    height: cs + cellSpacing,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: di < 6 ? cellSpacing * 0.5 : 0),
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: context.appColors.textTertiary,
+                          height: 1,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }),
-            ),
-            SizedBox(width: cellSpacing),
-            Row(
-              spacing: cellSpacing,
-              children: List.generate(weeks, (wi) {
-                final weekStart = wi * 7;
-                return Column(
-                  spacing: cellSpacing,
-                  children: List.generate(7, (di) {
-                    final idx = weekStart + di;
-                    if (idx >= entries.length) return SizedBox.square(dimension: cs);
-                    final dayData = entries[idx];
-                    return GestureDetector(
-                      onTap: onCellTap != null
-                          ? () => onCellTap!(dayData.date, dayData.status)
-                          : null,
-                      child: _HeatmapCell(
-                        dayData: dayData,
-                        size: cs,
-                        radius: cellRadius,
-                        colors: colors,
-                      ),
-                    );
-                  }),
-                );
-              }),
-            ),
-          ],
+                  );
+                }),
+              ),
+              SizedBox(width: cellSpacing),
+              Row(
+                spacing: cellSpacing,
+                children: List.generate(weeks, (wi) {
+                  final weekStart = wi * 7;
+                  return Column(
+                    spacing: cellSpacing,
+                    children: List.generate(7, (di) {
+                      final idx = weekStart + di;
+                      if (idx >= entries.length) return SizedBox.square(dimension: cs);
+                      final dayData = entries[idx];
+                      return GestureDetector(
+                        onTap: onCellTap != null
+                            ? () => onCellTap!(dayData.date, dayData.status)
+                            : null,
+                        child: _HeatmapCell(
+                          dayData: dayData,
+                          size: cs,
+                          radius: cellRadius,
+                          colors: colors,
+                        ),
+                      );
+                    }),
+                  );
+                }),
+              ),
+            ],
+          ),
         ),
       ),
     );

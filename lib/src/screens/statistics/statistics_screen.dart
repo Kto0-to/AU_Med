@@ -212,27 +212,8 @@ class _HeatmapCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Тепловая карта',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 30, label: Text('30')),
-                    ButtonSegment(value: 60, label: Text('60')),
-                    ButtonSegment(value: 90, label: Text('90')),
-                  ],
-                  selected: {range},
-                  onSelectionChanged: (v) =>
-                      ref.read(heatmapRangeProvider.notifier).setRange(v.first),
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-              ],
-            ),
+            const Text('Тепловая карта',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
             Center(
               child: MedHeatmap(
@@ -260,21 +241,38 @@ class _HeatmapCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _HmLegend(color: colors.textTertiary.withAlpha(60), label: 'Нет'),
-                const SizedBox(width: 8),
-                _HmLegend(color: colors.error, label: 'Пропущено'),
-                const SizedBox(width: 8),
-                _HmLegend(color: colors.warning, label: 'Часть'),
-                const SizedBox(width: 8),
-                _HmLegend(color: colors.success, label: 'Всё'),
-                const SizedBox(width: 8),
-                _HmLegend(color: colors.textTertiary, label: 'Ожидание'),
-                const SizedBox(width: 8),
-                _HmDotLegend(color: colors.info, label: 'PRN'),
-              ],
+            Center(
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 30, label: Text('30')),
+                  ButtonSegment(value: 60, label: Text('60')),
+                  ButtonSegment(value: 90, label: Text('90')),
+                ],
+                selected: {range},
+                onSelectionChanged: (v) =>
+                    ref.read(heatmapRangeProvider.notifier).setRange(v.first),
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _HmLegend(color: colors.textTertiary.withAlpha(60), label: 'Нет'),
+                  const SizedBox(width: 8),
+                  _HmLegend(color: colors.error, label: 'Пропущено'),
+                  const SizedBox(width: 8),
+                  _HmLegend(color: colors.warning, label: 'Часть'),
+                  const SizedBox(width: 8),
+                  _HmLegend(color: colors.success, label: 'Всё'),
+                  const SizedBox(width: 8),
+                  _HmDotLegend(color: colors.info, label: 'PRN'),
+                ],
+              ),
             ),
           ],
         ),

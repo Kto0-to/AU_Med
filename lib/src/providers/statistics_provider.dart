@@ -119,7 +119,7 @@ List<HeatmapDayData> _buildHeatmapData(
 
 class HeatmapRangeNotifier extends Notifier<int> {
   @override
-  int build() => 30;
+  int build() => 60;
 
   void setRange(int range) => state = range;
 }
