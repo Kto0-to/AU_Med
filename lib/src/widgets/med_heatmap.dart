@@ -8,6 +8,7 @@ class MedHeatmap extends StatelessWidget {
   final double? cellSize;
   final double cellSpacing;
   final double cellRadius;
+  final EdgeInsetsGeometry? contentPadding;
   final void Function(DateTime date, DayStatus status)? onCellTap;
 
   const MedHeatmap({
@@ -16,6 +17,7 @@ class MedHeatmap extends StatelessWidget {
     this.cellSize,
     this.cellSpacing = 3,
     this.cellRadius = 3,
+    this.contentPadding,
     this.onCellTap,
   });
 
@@ -27,16 +29,22 @@ class MedHeatmap extends StatelessWidget {
     final weeks = entries.length ~/ 7;
     if (weeks == 0) return const SizedBox.shrink();
 
+    Widget content;
     if (cellSize != null) {
-      return _build(cellSize!, weeks, context);
+      content = _build(cellSize!, weeks, context);
+    } else {
+      content = LayoutBuilder(builder: (context, constraints) {
+        final labelAndSpacing = _labelWidth + cellSpacing;
+        final availableWidth = constraints.maxWidth - labelAndSpacing;
+        final cs = (availableWidth - (weeks - 1) * cellSpacing) / weeks;
+        return _build(cs.clamp(8.0, 48.0), weeks, context);
+      });
     }
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final labelAndSpacing = _labelWidth + cellSpacing;
-      final availableWidth = constraints.maxWidth - labelAndSpacing;
-      final cs = (availableWidth - (weeks - 1) * cellSpacing) / weeks;
-      return _build(cs.clamp(8.0, 48.0), weeks, context);
-    });
+    if (contentPadding != null) {
+      return Padding(padding: contentPadding!, child: content);
+    }
+    return content;
   }
 
   Widget _build(double cs, int weeks, BuildContext context) {

@@ -940,7 +940,7 @@ class _ProgressSummary extends StatelessWidget {
                         ),
                         const SizedBox(width: 2),
                         Text(
-                          'По требованию: $prnTaken',
+                          'По надобности: $prnTaken',
                           style: TextStyle(
                             fontSize: 13,
                             color: theme.colorScheme.onSurfaceVariant,

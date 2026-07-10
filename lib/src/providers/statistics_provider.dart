@@ -76,6 +76,60 @@ final todayTotalCountProvider = FutureProvider<int>((ref) {
   return ref.read(statisticsDaoProvider).totalLogsForPeriod(dayStart, dayEnd);
 });
 
+final weeklyBarChartProvider =
+    FutureProvider<List<BarChartDayData>>((ref) async {
+  final dao = ref.read(statisticsDaoProvider);
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final start = today.subtract(const Duration(days: 6));
+  final data = await dao.getHeatmapScheduleData(start, today.add(const Duration(days: 1)));
+  final result = <BarChartDayData>[];
+  for (var d = start; !d.isAfter(today); d = d.add(const Duration(days: 1))) {
+    final entry = data[d];
+    result.add(BarChartDayData(
+      date: d,
+      taken: entry?.taken ?? 0,
+      missed: entry?.missed ?? 0,
+      total: entry?.total ?? 0,
+    ));
+  }
+  return result;
+});
+
+final monthlyBarChartProvider =
+    FutureProvider<List<BarChartDayData>>((ref) async {
+  final dao = ref.read(statisticsDaoProvider);
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final start = today.subtract(const Duration(days: 29));
+  final data = await dao.getHeatmapScheduleData(start, today.add(const Duration(days: 1)));
+  final result = <BarChartDayData>[];
+  for (var d = start; !d.isAfter(today); d = d.add(const Duration(days: 1))) {
+    final entry = data[d];
+    result.add(BarChartDayData(
+      date: d,
+      taken: entry?.taken ?? 0,
+      missed: entry?.missed ?? 0,
+      total: entry?.total ?? 0,
+    ));
+  }
+  return result;
+});
+
+class BarChartDayData {
+  final DateTime date;
+  final int taken;
+  final int missed;
+  final int total;
+
+  const BarChartDayData({
+    required this.date,
+    required this.taken,
+    required this.missed,
+    required this.total,
+  });
+}
+
 // ── Heatmap ──
 
 DateTime _previousMonday(DateTime date) {
