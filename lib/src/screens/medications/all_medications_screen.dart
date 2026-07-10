@@ -7,6 +7,7 @@ import 'package:icon_plus/icon_plus.dart';
 
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
+import 'package:au_med/src/shared/dosage_format.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
 import 'package:au_med/src/providers/logs_provider.dart';
 import 'package:au_med/src/providers/statistics_provider.dart';
@@ -166,9 +167,11 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
 
   Future<void> _takeMedication(MedicationsTableData medication) async {
     final dao = ref.read(logsDaoProvider);
+    final medsDao = ref.read(medicationsDaoProvider);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final existingLogs = await dao.getForMedicationOnDate(medication.id, today);
+    final alreadyTaken = existingLogs.any((l) => l.status == 'taken');
     if (existingLogs.isNotEmpty) {
       await dao.markTaken(existingLogs.first.id, now);
     } else {
@@ -180,6 +183,9 @@ class _AllMedicationsScreenState extends ConsumerState<AllMedicationsScreen> {
         takenTime: Value(now.toIso8601String()),
         createdAt: Value(now.toIso8601String()),
       ));
+    }
+    if (!alreadyTaken) {
+      await medsDao.adjustRemainingPills(medication.id, -1);
     }
     await NotificationService().cancelMedicationReminders(medication.id);
     ref.invalidate(allMedicationsProvider);
@@ -284,7 +290,7 @@ class _MedicationListCard extends StatelessWidget {
                       ],
                     const SizedBox(height: 4),
                     Text(
-                      '${medication.dosageValue} ${medication.dosageUnit}',
+                      formatDosage(medication.dosageValue, medication.dosageUnit),
                       style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 14,
@@ -380,7 +386,7 @@ class _MedicationDetailDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${medication.dosageValue} ${medication.dosageUnit}',
+                      formatDosage(medication.dosageValue, medication.dosageUnit),
                       style: TextStyle(
                         fontSize: 14,
                         color: theme.colorScheme.onSurfaceVariant,

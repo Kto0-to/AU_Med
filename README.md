@@ -1,6 +1,6 @@
 # 💊 AU MedTraker
 
-![AU MedTraker Logo](assets/images/icon.png)
+![AU MedTraker Logo](assets/images/logo.png)
 
 **AU MedTraker** — мобильное приложение для отслеживания приёма лекарств
 

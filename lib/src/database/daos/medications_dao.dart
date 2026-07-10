@@ -15,13 +15,19 @@ class MedicationsDao {
 
   Stream<List<MedicationsTableData>> watchActive() {
     final today = DateTime.now();
-    final todayStr = DateTime(today.year, today.month, today.day).toIso8601String();
+    final todayStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     return (_db.select(_db.medicationsTable)
           ..where((t) =>
-              t.isArchived.equals(false) &
-              t.isCompleted.equals(false) &
-              (t.startDate.equals('') | t.startDate.isSmallerOrEqualValue(todayStr))))
-        .watch();
+              t.isArchived.equals(false) & t.isCompleted.equals(false)))
+        .watch()
+        .map((list) => list.where((m) {
+              if (m.startDate.isEmpty) return true;
+              final s = m.startDate.length >= 10
+                  ? m.startDate.substring(0, 10)
+                  : m.startDate;
+              return s.compareTo(todayStr) <= 0;
+            }).toList());
   }
 
   Stream<List<MedicationsTableData>> watchArchived() =>
@@ -67,5 +73,14 @@ class MedicationsDao {
       (_db.select(_db.medicationsTable)
             ..where((t) => t.name.like('%$query%'))
             ..limit(20))
-          .get();
+        .get();
+
+  Future<void> adjustRemainingPills(int id, int sign) async {
+    final med = await getById(id);
+    if (med == null || med.remainingPills == null) return;
+    final step = med.dosageValue.ceil().clamp(1, 999999);
+    final next = (med.remainingPills! + sign * step).clamp(0, 100000000);
+    await (_db.update(_db.medicationsTable)..where((t) => t.id.equals(id)))
+        .write(MedicationsTableCompanion(remainingPills: Value(next)));
+  }
 }

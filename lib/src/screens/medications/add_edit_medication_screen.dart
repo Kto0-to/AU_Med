@@ -9,6 +9,10 @@ import 'package:au_med/src/providers/medications_provider.dart';
 import 'package:au_med/src/theme/app_theme.dart';
 import 'package:au_med/src/services/notification_service.dart';
 
+String _dateOnlyIso(DateTime? date) {
+  if (date == null) return '';
+  return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
 
 class AddEditMedicationScreen extends ConsumerStatefulWidget {
   final int? medicationId;
@@ -162,8 +166,12 @@ class _AddEditMedicationScreenState
         isArchived: const Value(false),
         isCompleted: const Value(false),
         notes: Value(_notes.trim().isEmpty ? null : _notes.trim()),
-        startDate: Value(_startDateController.value?.toIso8601String() ?? ''),
-        endDate: Value(_endDateController.value?.toIso8601String()),
+        startDate: Value(_dateOnlyIso(_startDateController.value)),
+        endDate: Value(
+          _endDateController.value == null
+              ? null
+              : _dateOnlyIso(_endDateController.value),
+        ),
         remainingPills: Value(_remainingPills),
         createdAt: Value(_isEditing
             ? (await dao.getById(widget.medicationId!))?.createdAt ?? now

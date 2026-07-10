@@ -9,6 +9,7 @@ import 'package:au_med/src/providers/database_provider.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
 import 'package:au_med/src/providers/logs_provider.dart';
 import 'package:au_med/src/database/database.dart';
+import 'package:au_med/src/shared/dosage_format.dart';
 import 'package:au_med/src/theme/app_color_tokens.dart';
 
 class DosageHistoryScreen extends ConsumerStatefulWidget {
@@ -185,7 +186,7 @@ class _CurrentDosageCard extends StatelessWidget {
                           fontSize: 18, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Text(
-                    'Текущая: ${medication.dosageValue} ${medication.dosageUnit}',
+                    'Текущая: ${formatDosage(medication.dosageValue, medication.dosageUnit)}',
                     style: TextStyle(
                       fontSize: 14,
                       color: medColor,

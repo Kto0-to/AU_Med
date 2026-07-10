@@ -67,6 +67,20 @@ class LogsDao {
     final dayStart = DateTime(date.year, date.month, date.day);
 
     for (final med in medications) {
+      if (med.startDate.isNotEmpty) {
+        final s = med.startDate.length >= 10
+            ? med.startDate.substring(0, 10)
+            : med.startDate;
+        final parsed = DateTime.tryParse(s);
+        if (parsed != null && parsed.isAfter(dayStart)) continue;
+      }
+      if (med.endDate != null && med.endDate!.isNotEmpty) {
+        final e = med.endDate!.length >= 10
+            ? med.endDate!.substring(0, 10)
+            : med.endDate!;
+        final parsed = DateTime.tryParse(e);
+        if (parsed != null && parsed.isBefore(dayStart)) continue;
+      }
       final times =
           med.times.split(',').where((t) => t.isNotEmpty).toList();
       if (times.isEmpty) continue;

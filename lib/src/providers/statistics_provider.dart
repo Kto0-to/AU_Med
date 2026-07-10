@@ -135,8 +135,9 @@ final heatmapDataProvider = FutureProvider<List<HeatmapDayData>>((ref) async {
   final start = _previousMonday(rawStart);
   final end = _nextSunday(today);
 
-  final scheduleData = await dao.getHeatmapScheduleData(start, end);
-  final prnDays = await dao.prnDaysForPeriod(start, end);
+  final queryEnd = end.add(const Duration(days: 1));
+  final scheduleData = await dao.getHeatmapScheduleData(start, queryEnd);
+  final prnDays = await dao.prnDaysForPeriod(start, queryEnd);
 
   return _buildHeatmapData(start, end, scheduleData, prnDays, today);
 });
@@ -149,8 +150,9 @@ final weekHeatmapProvider =
   final monday = _previousMonday(date);
   final sunday = _nextSunday(date);
 
-  final scheduleData = await dao.getHeatmapScheduleData(monday, sunday);
-  final prnDays = await dao.prnDaysForPeriod(monday, sunday);
+  final queryEnd = sunday.add(const Duration(days: 1));
+  final scheduleData = await dao.getHeatmapScheduleData(monday, queryEnd);
+  final prnDays = await dao.prnDaysForPeriod(monday, queryEnd);
 
   return _buildHeatmapData(monday, sunday, scheduleData, prnDays, today);
 });

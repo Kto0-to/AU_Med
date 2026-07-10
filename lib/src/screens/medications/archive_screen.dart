@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:icon_plus/icon_plus.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/providers/database_provider.dart';
+import 'package:au_med/src/shared/dosage_format.dart';
 import 'package:au_med/src/providers/medications_provider.dart';
 
 class ArchiveScreen extends ConsumerStatefulWidget {
@@ -189,7 +190,7 @@ class _ArchiveCard extends StatelessWidget {
                 children: [
                   Text(medication.name,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text('${medication.dosageValue} ${medication.dosageUnit}',
+                  Text(formatDosage(medication.dosageValue, medication.dosageUnit),
                       style: TextStyle(
                           fontSize: 13,
                           color: Theme.of(context).colorScheme.onSurfaceVariant)),

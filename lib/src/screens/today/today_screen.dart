@@ -13,6 +13,7 @@ import 'package:au_med/src/providers/medications_provider.dart';
 import 'package:au_med/src/providers/logs_provider.dart';
 import 'package:au_med/src/providers/statistics_provider.dart';
 import 'package:au_med/src/shared/day_status.dart';
+import 'package:au_med/src/shared/dosage_format.dart';
 import 'package:au_med/src/database/database.dart';
 import 'package:au_med/src/theme/app_color_tokens.dart';
 import 'package:au_med/src/theme/app_theme.dart';
@@ -87,7 +88,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     return medications
         .where((med) {
           if (med.startDate.isEmpty) return true;
-          final start = DateTime.tryParse(med.startDate);
+          final startStr = med.startDate.length >= 10
+              ? med.startDate.substring(0, 10)
+              : med.startDate;
+          final start = DateTime.tryParse(startStr);
           if (start == null) return true;
           final day = DateTime(
             _normalizedDate.year,
@@ -152,6 +156,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         ref.invalidate(logsForDateProvider(_normalizedDate));
         ref.invalidate(streakDaysUpToProvider(_normalizedDate));
         ref.invalidate(weekHeatmapProvider(_normalizedDate));
+        ref.invalidate(heatmapDataProvider);
       });
     }
 
@@ -373,6 +378,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                             selectedDate: _normalizedDate,
                             onMarkTaken: (medicationId, time) async {
                               final dao = ref.read(logsDaoProvider);
+                              final medsDao = ref.read(medicationsDaoProvider);
                               final now = DateTime.now();
                               final existingLogs = await dao
                                   .getForMedicationOnDate(
@@ -386,8 +392,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                         _timeMatches(l.scheduledTime, time),
                                   )
                                   .firstOrNull;
+                              final wasTaken = log?.status == 'taken';
                               if (log != null) {
-                                if (log.status == 'taken') {
+                                if (wasTaken) {
                                   await dao.updateLog(
                                     log.id,
                                     MedicationLogsTableCompanion(
@@ -395,8 +402,16 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                       takenTime: const Value(null),
                                     ),
                                   );
+                                  await medsDao.adjustRemainingPills(
+                                    medicationId,
+                                    1,
+                                  );
                                 } else {
                                   await dao.markTaken(log.id, now);
+                                  await medsDao.adjustRemainingPills(
+                                    medicationId,
+                                    -1,
+                                  );
                                 }
                               } else {
                                 final scheduledTime = time != null
@@ -410,6 +425,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                     takenTime: Value(now.toIso8601String()),
                                     createdAt: Value(now.toIso8601String()),
                                   ),
+                                );
+                                await medsDao.adjustRemainingPills(
+                                  medicationId,
+                                  -1,
                                 );
                               }
                               await NotificationService()
@@ -461,6 +480,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                               selectedDate: _normalizedDate,
                               onCancelTake: (medicationId) async {
                                 final dao = ref.read(logsDaoProvider);
+                                final medsDao = ref.read(medicationsDaoProvider);
                                 final logs = await dao.getForMedicationOnDate(
                                   medicationId,
                                   _normalizedDate,
@@ -476,6 +496,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                       );
                                 if (takenLogs.isNotEmpty) {
                                   await dao.deleteLog(takenLogs.first.id);
+                                  await medsDao.adjustRemainingPills(
+                                    medicationId,
+                                    1,
+                                  );
                                 }
                                 ref.invalidate(
                                   logsForDateProvider(_normalizedDate),
@@ -516,6 +540,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                               },
                               onMarkTaken: (medicationId) async {
                                 final dao = ref.read(logsDaoProvider);
+                                final medsDao = ref.read(medicationsDaoProvider);
                                 final now = DateTime.now();
                                 final scheduledTime = DateTime(
                                   _normalizedDate.year,
@@ -535,6 +560,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                     takenTime: Value(now.toIso8601String()),
                                     createdAt: Value(now.toIso8601String()),
                                   ),
+                                );
+                                await medsDao.adjustRemainingPills(
+                                  medicationId,
+                                  -1,
                                 );
                                 await NotificationService()
                                     .cancelMedicationReminders(medicationId);
@@ -1239,11 +1268,21 @@ class _PrnSection extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${med.dosageValue} ${med.dosageUnit}',
+                            formatDosage(med.dosageValue, med.dosageUnit),
                             style: TextStyle(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
+                          if (med.remainingPills != null)
+                            Text(
+                              'Остаток: ${med.remainingPills}',
+                              style: TextStyle(
+                                color: med.remainingPills! <= 5
+                                    ? Colors.red
+                                    : theme.colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -1363,12 +1402,22 @@ class _MedicationTimeSlot extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${medication.dosageValue} ${medication.dosageUnit}',
+                      formatDosage(medication.dosageValue, medication.dosageUnit),
                       style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 13,
                       ),
                     ),
+                    if (medication.remainingPills != null)
+                      Text(
+                        'Остаток: ${medication.remainingPills}',
+                        style: TextStyle(
+                          color: medication.remainingPills! <= 5
+                              ? Colors.red
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
                     if (time != null)
                       Text(
                         time!,
@@ -1519,12 +1568,22 @@ class _MedicationDetailDialogState extends State<_MedicationDetailDialog> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${widget.medication.dosageValue} ${widget.medication.dosageUnit}',
+                      formatDosage(widget.medication.dosageValue, widget.medication.dosageUnit),
                       style: TextStyle(
                         fontSize: 14,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    if (widget.medication.remainingPills != null)
+                      Text(
+                        'Остаток: ${widget.medication.remainingPills}',
+                        style: TextStyle(
+                          color: widget.medication.remainingPills! <= 5
+                              ? Colors.red
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
                     if (widget.time != null)
                       Text(
                         widget.time!,
